@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,7 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,9 +51,11 @@ fun HomeScreen(
   val currentRole by repository.currentRole.collectAsState()
   val userName by repository.currentUserName.collectAsState()
   val incidents by repository.incidents.collectAsState()
+  val productionEntries by repository.productionEntries.collectAsState()
+  val qualityEntries by repository.qualityEntries.collectAsState()
 
-  val tvData = remember(currentFloor, currentPeriod, isDemoMode, incidents) {
-    repository.getTvDashboardData(currentFloor)
+  val tvData = remember(currentFloor, currentPeriod, isDemoMode, incidents, productionEntries, qualityEntries) {
+    repository.getTvDashboardData(currentFloor, currentPeriod)
   }
 
   var selectedChartTab by remember { mutableStateOf("SPEEDOMETER") } // SPEEDOMETER | COLUMN | DONUT | PARETO
@@ -226,7 +231,7 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically
           ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-              Text(text = "📅 09 Oct 2026", color = Color(0xFFE3F2FD), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+              Text(text = "📅 ${repository.getPeriodLabel(currentPeriod)}", color = Color(0xFFE3F2FD), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
               Text(text = "• Shift A (08:00 - 17:00)", color = Color(0xFFB0C4DE), fontSize = 10.sp)
             }
 
@@ -380,91 +385,92 @@ fun HomeScreen(
         }
       }
 
-      // 3. Multi-Visual Executive KPI Cards Grid (Speedometer, Donut, Trend, Quality)
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-      ) {
-        ExecutiveKpiCard(
-          title = "Today Efficiency",
-          valueText = "${tvData.kpis.todayEfficiency}%",
-          targetText = "Target: 75.0% (Δ -7.0 pp)",
-          trendText = if (tvData.kpis.todayEfficiency >= 75) "ON TARGET" else "UNDER",
-          isPositiveTrend = tvData.kpis.todayEfficiency >= 75,
-          accentColor = Color(0xFF1E88E5),
-          endVisual = {
-            MiniSpeedometerGauge(
-              value = tvData.kpis.todayEfficiency,
-              targetValue = 75.0
-            )
-          },
-          modifier = Modifier.weight(1f)
-        )
+      // 3. Daily selections show KPI cards; weekly/monthly selections show a date-based QA trend.
+      if (currentPeriod == PeriodScope.TODAY || currentPeriod == PeriodScope.YESTERDAY) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          ExecutiveKpiCard(
+            title = "${currentPeriod.displayName} Efficiency",
+            valueText = "${tvData.kpis.todayEfficiency}%",
+            targetText = "Target: ${tvData.kpis.todayTargetEfficiency}%",
+            trendText = if (tvData.kpis.todayEfficiency >= tvData.kpis.todayTargetEfficiency) "ON TARGET" else "UNDER",
+            isPositiveTrend = tvData.kpis.todayEfficiency >= tvData.kpis.todayTargetEfficiency,
+            accentColor = Color(0xFF1E88E5),
+            endVisual = {
+              MiniSpeedometerGauge(value = tvData.kpis.todayEfficiency, targetValue = tvData.kpis.todayTargetEfficiency)
+            },
+            modifier = Modifier.weight(1f)
+          )
+          ExecutiveKpiCard(
+            title = "Target Efficiency",
+            valueText = "${tvData.kpis.todayTargetEfficiency}%",
+            targetText = "Factory target benchmark",
+            trendText = "TARGET",
+            isPositiveTrend = true,
+            progressFraction = (tvData.kpis.todayTargetEfficiency / 100.0).toFloat(),
+            accentColor = Color(0xFF0284C7),
+            modifier = Modifier.weight(1f)
+          )
+        }
 
-        ExecutiveKpiCard(
-          title = "Monthly Efficiency",
-          valueText = "${tvData.kpis.monthlyEfficiency}%",
-          targetText = "Last month: 68.1%",
-          trendText = "▲ +${tvData.kpis.monthlyEfficiencyDelta} pp",
-          isPositiveTrend = true,
-          progressFraction = (tvData.kpis.monthlyEfficiency / 100.0).toFloat(),
-          accentColor = Color(0xFF0284C7),
-          modifier = Modifier.weight(1f)
-        )
-      }
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          ExecutiveKpiCard(
+            title = "${currentPeriod.displayName} Output",
+            valueText = "${tvData.kpis.todayOutputPcs} pcs",
+            targetText = "Target: ${tvData.kpis.todayTargetPcs} pcs",
+            trendText = if (tvData.kpis.todayOutputPcs >= tvData.kpis.todayTargetPcs) "ON TARGET" else "${(tvData.kpis.todayTargetPcs - tvData.kpis.todayOutputPcs).coerceAtLeast(0)} pcs gap",
+            isPositiveTrend = tvData.kpis.todayOutputPcs >= tvData.kpis.todayTargetPcs,
+            accentColor = Color(0xFF10B981),
+            endVisual = {
+              MiniDonutProgress(
+                fraction = if (tvData.kpis.todayTargetPcs > 0) (tvData.kpis.todayOutputPcs.toFloat() / tvData.kpis.todayTargetPcs.toFloat()).coerceIn(0f, 1f) else 0f,
+                accentColor = Color(0xFF10B981)
+              )
+            },
+            modifier = Modifier.weight(1f)
+          )
+          ExecutiveKpiCard(
+            title = "${currentPeriod.displayName} OQL",
+            valueText = "${tvData.kpis.todayOql}%",
+            targetText = "Benchmark: 5.00%",
+            trendText = if (tvData.kpis.todayOql <= 5.0) "PASS" else "ALERT",
+            isPositiveTrend = tvData.kpis.todayOql <= 5.0,
+            progressFraction = (tvData.kpis.todayOql / 10.0).toFloat().coerceIn(0f, 1f),
+            accentColor = Color(0xFFF59E0B),
+            modifier = Modifier.weight(1f)
+          )
+        }
 
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-      ) {
-        ExecutiveKpiCard(
-          title = "Today Output",
-          valueText = "${tvData.kpis.todayOutputPcs} pcs",
-          targetText = "Target: ${tvData.kpis.todayTargetPcs} pcs (82.1%)",
-          trendText = "-750 pcs gap",
-          isPositiveTrend = false,
-          accentColor = Color(0xFF10B981),
-          endVisual = {
-            MiniDonutProgress(
-              fraction = (tvData.kpis.todayOutputPcs.toFloat() / tvData.kpis.todayTargetPcs.toFloat()),
-              accentColor = Color(0xFF10B981)
-            )
-          },
-          modifier = Modifier.weight(1f)
-        )
-
-        ExecutiveKpiCard(
-          title = "Today OQL",
-          valueText = "${tvData.kpis.todayOql}%",
-          targetText = "Baseline Standard: 5.00%",
-          trendText = if (tvData.kpis.todayOql <= 5.0) "PASS" else "ALERT",
-          isPositiveTrend = tvData.kpis.todayOql <= 5.0,
-          progressFraction = (tvData.kpis.todayOql / 10.0).toFloat(),
-          accentColor = Color(0xFFF59E0B),
-          modifier = Modifier.weight(1f)
-        )
-      }
-
-      // Secondary KPI Row: FRI Pass Rate & Operators/Machines
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-      ) {
-        ExecutiveKpiCard(
-          title = "FRI Pass Rate",
-          valueText = "${tvData.kpis.friPassRate.toInt()}%",
-          targetText = "First-time Right Quality",
-          trendText = "100% PERFECT",
-          isPositiveTrend = true,
-          progressFraction = 1.0f,
-          accentColor = Color(0xFF059669),
-          modifier = Modifier.weight(1f)
-        )
-
-        OperatorMachineMetricCard(
-          operatorsCount = tvData.kpis.operatorsCount,
-          machinesCount = tvData.kpis.machinesCount,
-          modifier = Modifier.weight(1f)
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          ExecutiveKpiCard(
+            title = "FRI Pass Rate",
+            valueText = "${tvData.kpis.friPassRate.toInt()}%",
+            targetText = "First-time Right Quality",
+            trendText = "100% PERFECT",
+            isPositiveTrend = true,
+            progressFraction = 1.0f,
+            accentColor = Color(0xFF059669),
+            modifier = Modifier.weight(1f)
+          )
+          OperatorMachineMetricCard(
+            operatorsCount = tvData.kpis.operatorsCount,
+            machinesCount = tvData.kpis.machinesCount,
+            modifier = Modifier.weight(1f)
+          )
+        }
+      } else {
+        OqlTrendChart(
+          title = "${currentFloor.displayName} — ${currentPeriod.displayName} OQL Trend",
+          subtitle = if (currentPeriod == PeriodScope.WEEK) "Daily trend over the last 7 days" else "Daily trend for ${repository.getPeriodLabel(currentPeriod)}",
+          points = tvData.weeklyQaTrend
         )
       }
 
@@ -773,5 +779,80 @@ fun HomeScreen(
         }
       }
     )
+  }
+}
+
+
+@Composable
+private fun OqlTrendChart(
+  title: String,
+  subtitle: String,
+  points: List<DailyQaTrend>
+) {
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(containerColor = Color.White),
+    elevation = CardDefaults.cardElevation(2.dp)
+  ) {
+    Column(
+      modifier = Modifier.padding(14.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+      Text(title, fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
+      Text(subtitle, fontSize = 10.sp, color = Color(0xFF64748B))
+      Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+          Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF1976D2)))
+          Text("Actual OQL", fontSize = 10.sp, color = Color(0xFF334155))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+          Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFF59E0B)))
+          Text("5% benchmark", fontSize = 10.sp, color = Color(0xFF334155))
+        }
+      }
+      if (points.isEmpty()) {
+        Box(Modifier.fillMaxWidth().height(145.dp), contentAlignment = Alignment.Center) {
+          Text("No quality records for this period yet", fontSize = 12.sp, color = Color(0xFF64748B))
+        }
+      } else {
+        Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+          val left = 12f
+          val right = size.width - 12f
+          val top = 10f
+          val bottom = size.height - 12f
+          val plotHeight = bottom - top
+          val maxValue = maxOf(5.0, points.maxOf { maxOf(it.bsOqlPct, it.nflAqcPct) } + 1.0).toFloat()
+          for (i in 0..4) {
+            val y = top + plotHeight * i / 4f
+            drawLine(Color(0xFFE2E8F0), Offset(left, y), Offset(right, y), strokeWidth = 1f)
+          }
+          fun pointAt(index: Int, value: Double): Offset {
+            val x = if (points.size == 1) (left + right) / 2f else left + (right - left) * index / (points.size - 1).toFloat()
+            val y = bottom - (value.toFloat() / maxValue) * plotHeight
+            return Offset(x, y)
+          }
+          fun drawSeries(values: (DailyQaTrend) -> Double, color: Color) {
+            val path = Path()
+            points.forEachIndexed { index, point ->
+              val p = pointAt(index, values(point))
+              if (index == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
+              drawCircle(color, radius = 3.5f, center = p)
+            }
+            if (points.size > 1) drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f))
+          }
+          drawSeries({ it.bsOqlPct }, Color(0xFF1976D2))
+          drawSeries({ it.nflAqcPct }, Color(0xFFF59E0B))
+        }
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+          Text(points.first().dateLabel, fontSize = 9.sp, color = Color(0xFF64748B))
+          if (points.size > 2) Text(points[points.size / 2].dateLabel, fontSize = 9.sp, color = Color(0xFF64748B))
+          if (points.size > 1) Text(points.last().dateLabel, fontSize = 9.sp, color = Color(0xFF64748B))
+        }
+      }
+    }
   }
 }
