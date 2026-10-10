@@ -396,7 +396,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
               </div>
 
               {/* Grouped Bars */}
-              <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200" style={{ minWidth: `${Math.max(520, lineSummaries.length * 70)}px` }}>
+              <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200" style={{ minWidth: `${Math.max(520, lineSummaries.length * 70)}px` }} style={{ minWidth: `${Math.max(520, lineSummaries.length * 70)}px` }}>
                 {lineSummaries.map(line => {
                   const maxTarget = 650;
                   const targetH = Math.round((line.target / maxTarget) * 120);
@@ -517,7 +517,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200">
+              <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200" style={{ minWidth: `${Math.max(520, lineSummaries.length * 70)}px` }}>
                 {lineSummaries.map(line => {
                   const todayEff = line.efficiencyPct ?? 0;
                   const monthEff = line.monthlyEfficiencyPct;
@@ -567,7 +567,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200">
+              <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200" style={{ minWidth: `${Math.max(520, lineSummaries.length * 70)}px` }}>
                 {lineSummaries.map(line => {
                   const todayOql = line.todayOqlPct ?? 0;
                   const monthOql = line.monthlyOqlPct;
