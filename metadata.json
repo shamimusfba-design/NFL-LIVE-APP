@@ -1,6 +1,6 @@
 {
-  "name": "NOS Live",
-  "description": "NOS Live (Northern Operating System Live) — Garment factory production, quality inspection, NPT tracking and TV performance dashboard.",
+  "name": "NFL LIVE",
+  "description": "NFL LIVE (Northern Fashion Limited Live) — Garment factory production, quality inspection, NPT tracking, line performance gauges, and Smart TV live dashboard.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

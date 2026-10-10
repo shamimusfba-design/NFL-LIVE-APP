@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "NOS Live"
+rootProject.name = "NFL LIVE"
 
 include(":app")

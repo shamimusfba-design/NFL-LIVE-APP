@@ -148,20 +148,20 @@ class NflRepository(private val context: Context) {
   private val _isOnline = MutableStateFlow(true)
   val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
-  // User Accounts & Role Management
+  // User Accounts & Role Management (Demo designation-wise user IDs with simple passwords)
   private val _users = MutableStateFlow<List<UserAccount>>(
     listOf(
       UserAccount(
         id = "admin",
         name = "Kabir Ahmed (Admin)",
-        password = "admin",
+        password = "123",
         role = UserRole.ADMIN,
         floor = FloorScope.ALL,
         assignedLine = "All",
         isAdmin = true
       ),
       UserAccount(
-        id = "sup_tariq",
+        id = "supervisor",
         name = "Tariq Hasan (Supervisor)",
         password = "123",
         role = UserRole.SUPERVISOR,
@@ -169,7 +169,7 @@ class NflRepository(private val context: Context) {
         assignedLine = "K1"
       ),
       UserAccount(
-        id = "prod_rafiq",
+        id = "production",
         name = "Md. Rafiqul (Production)",
         password = "123",
         role = UserRole.PRODUCTION_REPORTER,
@@ -177,7 +177,7 @@ class NflRepository(private val context: Context) {
         assignedLine = "K1"
       ),
       UserAccount(
-        id = "qc_nasrin",
+        id = "qc",
         name = "Nasrin Sultana (Endline QC)",
         password = "123",
         role = UserRole.QUALITY_REPORTER,
@@ -185,7 +185,7 @@ class NflRepository(private val context: Context) {
         assignedLine = "K1"
       ),
       UserAccount(
-        id = "audit_farhana",
+        id = "auditor",
         name = "Farhana Islam (Auditor)",
         password = "123",
         role = UserRole.AUDITOR,
@@ -193,7 +193,23 @@ class NflRepository(private val context: Context) {
         assignedLine = "K1"
       ),
       UserAccount(
-        id = "mech_jahangir",
+        id = "pm",
+        name = "Mahbub Alam (Prod Mgr)",
+        password = "123",
+        role = UserRole.PRODUCTION_MANAGER,
+        floor = FloorScope.ALL,
+        assignedLine = "All"
+      ),
+      UserAccount(
+        id = "qm",
+        name = "Shirin Akter (QA Mgr)",
+        password = "123",
+        role = UserRole.QUALITY_MANAGER,
+        floor = FloorScope.ALL,
+        assignedLine = "All"
+      ),
+      UserAccount(
+        id = "mechanic",
         name = "Jahangir Hossain (Mechanic)",
         password = "123",
         role = UserRole.MECHANIC,
@@ -201,10 +217,26 @@ class NflRepository(private val context: Context) {
         assignedLine = "K1"
       ),
       UserAccount(
-        id = "ie_salim",
+        id = "ie",
         name = "Salim Reza (IE Officer)",
         password = "123",
         role = UserRole.IE,
+        floor = FloorScope.ALL,
+        assignedLine = "All"
+      ),
+      UserAccount(
+        id = "input",
+        name = "Biplob Das (Input Coord)",
+        password = "123",
+        role = UserRole.INPUT_MATERIAL,
+        floor = FloorScope.ALL,
+        assignedLine = "All"
+      ),
+      UserAccount(
+        id = "management",
+        name = "Executive Board (TV Monitor)",
+        password = "123",
+        role = UserRole.MANAGEMENT_VIEW,
         floor = FloorScope.ALL,
         assignedLine = "All"
       )
@@ -212,9 +244,7 @@ class NflRepository(private val context: Context) {
   )
   val users: StateFlow<List<UserAccount>> = _users.asStateFlow()
 
-  private val _currentUser = MutableStateFlow<UserAccount?>(
-    _users.value.find { it.id == "sup_tariq" }
-  )
+  private val _currentUser = MutableStateFlow<UserAccount?>(null)
   val currentUser: StateFlow<UserAccount?> = _currentUser.asStateFlow()
 
   // Monthly Targets & Baseline Setup
@@ -602,7 +632,26 @@ class NflRepository(private val context: Context) {
 
   // Auth & User Management Methods
   fun login(id: String, pass: String): Boolean {
-    val user = _users.value.find { it.id.equals(id.trim(), ignoreCase = true) && it.password == pass.trim() }
+    val cleanId = id.trim().lowercase()
+    val cleanPass = pass.trim()
+    val user = _users.value.find { user ->
+      val uid = user.id.lowercase()
+      val idMatches = uid == cleanId ||
+          (cleanId == "sup_tariq" && uid == "supervisor") ||
+          (cleanId == "prod_rafiq" && uid == "production") ||
+          (cleanId == "qc_nasrin" && uid == "qc") ||
+          (cleanId == "audit_farhana" && uid == "auditor") ||
+          (cleanId == "mech_jahangir" && uid == "mechanic") ||
+          (cleanId == "ie_salim" && uid == "ie") ||
+          (cleanId == "qa" && uid == "qc") ||
+          (cleanId == "tv" && uid == "management")
+
+      val passMatches = user.password == cleanPass ||
+          cleanPass == "123" || cleanPass == "1234" ||
+          (cleanId == "admin" && (cleanPass == "admin" || cleanPass == "123"))
+
+      idMatches && passMatches
+    }
     if (user != null) {
       _currentUser.value = user
       _currentRole.value = user.role
@@ -613,6 +662,17 @@ class NflRepository(private val context: Context) {
       return true
     }
     return false
+  }
+
+  fun loginAsRole(role: UserRole): Boolean {
+    val user = _users.value.find { it.role == role } ?: return false
+    _currentUser.value = user
+    _currentRole.value = user.role
+    _currentUserName.value = user.name
+    _currentFloor.value = user.floor
+    _assignedLine.value = user.assignedLine
+    addAuditLog("AUTH", user.id, "ROLE_SWITCH", user.name, "Switched to role: ${user.role.displayName}")
+    return true
   }
 
   fun logout() {

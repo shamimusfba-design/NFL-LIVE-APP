@@ -108,13 +108,13 @@ fun TvDashboardScreen(
               horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
               Icon(
-                painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_nos_logo),
-                contentDescription = "NOS Logo",
+                painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_nfl_logo),
+                contentDescription = "NFL Logo",
                 modifier = Modifier.size(18.dp),
                 tint = Color.Unspecified
               )
               Text(
-                text = "NOS Live",
+                text = "NFL LIVE",
                 color = Color(0xFF002D62),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Black
@@ -124,7 +124,7 @@ fun TvDashboardScreen(
 
           Column {
             Text(
-              text = "NOS Live — Northern Operating System Live",
+              text = "NFL LIVE — Northern Fashion Limited Live",
               color = Color.White,
               fontSize = 14.sp,
               fontWeight = FontWeight.Black

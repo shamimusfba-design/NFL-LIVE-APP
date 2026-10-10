@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                 ) {
-                  // 1. Drawer Header with NOS Live Branding & Current User
+                  // 1. Drawer Header with NFL LIVE Branding & Current User
                   Surface(
                     color = Color(0xFF1E293B),
                     modifier = Modifier.fillMaxWidth()
@@ -126,8 +126,8 @@ class MainActivity : ComponentActivity() {
                         ) {
                           Box(contentAlignment = Alignment.Center) {
                             Icon(
-                              painter = painterResource(R.drawable.ic_nos_logo),
-                              contentDescription = "NOS Live Logo",
+                              painter = painterResource(R.drawable.ic_nfl_logo),
+                              contentDescription = "NFL Live Logo",
                               modifier = Modifier.size(24.dp),
                               tint = Color.Unspecified
                             )
@@ -135,13 +135,13 @@ class MainActivity : ComponentActivity() {
                         }
                         Column {
                           Text(
-                            text = "NOS Live",
+                            text = "NFL LIVE",
                             color = Color.White,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Black
                           )
                           Text(
-                            text = "Northern Operating System Live",
+                            text = "Northern Fashion Limited Live",
                             color = Color(0xFF94A3B8),
                             fontSize = 10.sp
                           )
@@ -150,34 +150,61 @@ class MainActivity : ComponentActivity() {
 
                       Spacer(modifier = Modifier.height(14.dp))
 
-                      // User Info Badge
+                      // User Info Badge with Direct Switch / Login Action
                       Surface(
                         color = Color(0xFF0F172A),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
                       ) {
                         Row(
-                          modifier = Modifier.padding(10.dp),
+                          modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
                           verticalAlignment = Alignment.CenterVertically,
-                          horizontalArrangement = Arrangement.spacedBy(8.dp)
+                          horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                          Box(
-                            modifier = Modifier
-                              .size(10.dp)
-                              .clip(CircleShape)
-                              .background(Color(0xFF10B981))
-                          )
-                          Column {
-                            Text(
-                              text = currentUserName,
-                              color = Color.White,
-                              fontWeight = FontWeight.Bold,
-                              fontSize = 12.sp
+                          Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                          ) {
+                            Box(
+                              modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981))
                             )
+                            Column {
+                              Text(
+                                text = currentUserName,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                maxLines = 1
+                              )
+                              Text(
+                                text = "Role: ${currentRole.displayName}",
+                                color = Color(0xFF38BDF8),
+                                fontSize = 10.sp
+                              )
+                            }
+                          }
+
+                          Surface(
+                            onClick = {
+                              currentScreen = AppScreen.LOGIN
+                              scope.launch { drawerState.close() }
+                            },
+                            color = Color(0xFF1E3A8A),
+                            shape = RoundedCornerShape(6.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF60A5FA).copy(alpha = 0.5f))
+                          ) {
                             Text(
-                              text = "Role: ${currentRole.displayName}",
-                              color = Color(0xFF38BDF8),
-                              fontSize = 10.sp
+                              text = "Switch",
+                              color = Color(0xFFFDE047),
+                              fontSize = 10.sp,
+                              fontWeight = FontWeight.Bold,
+                              modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                           }
                         }
@@ -186,6 +213,20 @@ class MainActivity : ComponentActivity() {
                   }
 
                   Spacer(modifier = Modifier.height(10.dp))
+
+                  // Direct Login & Account Switch in Drawer
+                  NavigationDrawerItem(
+                    label = { Text("🔑 Switch User / Login Screen", color = Color(0xFFFDE047), fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                    selected = false,
+                    onClick = {
+                      currentScreen = AppScreen.LOGIN
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color(0xFF1E293B)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                  )
 
                   // 2. Navigation Items
                   Text(
@@ -493,7 +534,8 @@ class MainActivity : ComponentActivity() {
                       currentScreen = AppScreen.LINE_DEEP_DIVE
                     },
                     onNavigateToMonthlySetup = { currentScreen = AppScreen.MONTHLY_SETUP },
-                    onNavigateToAdminUsers = { currentScreen = AppScreen.ADMIN_USERS }
+                    onNavigateToAdminUsers = { currentScreen = AppScreen.ADMIN_USERS },
+                    onNavigateToLogin = { currentScreen = AppScreen.LOGIN }
                   )
                   AppScreen.LINE_DEEP_DIVE -> LineDeepDiveScreen(
                     repository = repository,

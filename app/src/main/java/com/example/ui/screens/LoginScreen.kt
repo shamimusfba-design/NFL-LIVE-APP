@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -35,7 +36,7 @@ fun LoginScreen(
   onLoginSuccess: () -> Unit
 ) {
   val users by repository.users.collectAsState()
-  var usernameInput by remember { mutableStateOf("sup_tariq") }
+  var usernameInput by remember { mutableStateOf("supervisor") }
   var passwordInput by remember { mutableStateOf("123") }
   var passwordVisible by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -43,7 +44,7 @@ fun LoginScreen(
   // Admin Initial Setup Modal State
   var showAdminSetupDialog by remember { mutableStateOf(false) }
   var newAdminId by remember { mutableStateOf("admin") }
-  var newAdminPass by remember { mutableStateOf("admin123") }
+  var newAdminPass by remember { mutableStateOf("123") }
   var newAdminName by remember { mutableStateOf("System Admin") }
 
   Box(
@@ -55,41 +56,74 @@ fun LoginScreen(
       modifier = Modifier
         .fillMaxSize()
         .verticalScroll(rememberScrollState())
-        .padding(horizontal = 24.dp, vertical = 40.dp),
+        .padding(horizontal = 20.dp, vertical = 32.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center
     ) {
-      // 1. App Brand Header
+      // 1. App Brand Header with Official Company Logo
       Surface(
-        color = Color(0xFF1E293B),
-        shape = CircleShape,
+        color = Color.White,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 8.dp,
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
         modifier = Modifier.size(80.dp)
       ) {
-        Box(contentAlignment = Alignment.Center) {
-          Text(
-            text = "NOS",
-            color = Color(0xFF38BDF8),
-            fontWeight = FontWeight.Black,
-            fontSize = 24.sp
+        Box(
+          contentAlignment = Alignment.Center,
+          modifier = Modifier.padding(6.dp)
+        ) {
+          Icon(
+            painter = painterResource(com.example.R.drawable.ic_nfl_logo),
+            contentDescription = "Northern Fashion Limited Company Logo",
+            modifier = Modifier.size(64.dp),
+            tint = Color.Unspecified
           )
         }
       }
 
-      Spacer(modifier = Modifier.height(14.dp))
+      Spacer(modifier = Modifier.height(12.dp))
 
       Text(
-        text = "NOS Live",
+        text = "NFL LIVE",
         fontSize = 26.sp,
         fontWeight = FontWeight.Black,
         color = Color.White
       )
       Text(
-        text = "Northern Operating System Live",
+        text = "Northern Fashion Limited Live",
         fontSize = 12.sp,
         color = Color(0xFF94A3B8)
       )
 
-      Spacer(modifier = Modifier.height(28.dp))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Offline Local System Status Pill (Directly answers user's question!)
+      Surface(
+        color = Color(0xFF064E3B),
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f))
+      ) {
+        Row(
+          modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+          Box(
+            modifier = Modifier
+              .size(6.dp)
+              .clip(CircleShape)
+              .background(Color(0xFF34D399))
+          )
+          Text(
+            text = "Local System Ready • No Server Upload Needed",
+            color = Color(0xFF6EE7B7),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.height(20.dp))
 
       // 2. Login Card
       Card(
@@ -101,17 +135,17 @@ fun LoginScreen(
         Column(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(20.dp),
-          verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(18.dp),
+          verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
           Text(
             text = "Sign In to Your Account",
-            fontSize = 17.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF0F172A)
           )
           Text(
-            text = "Enter User ID and Password assigned by Admin",
+            text = "Enter your Designation User ID and Password (Default: 123)",
             fontSize = 11.sp,
             color = Color(0xFF64748B)
           )
@@ -123,7 +157,7 @@ fun LoginScreen(
               usernameInput = it
               errorMessage = null
             },
-            label = { Text("User ID (e.g. admin, sup_tariq)") },
+            label = { Text("User ID (e.g. admin, supervisor, qc)") },
             leadingIcon = {
               Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF64748B))
             },
@@ -141,7 +175,7 @@ fun LoginScreen(
               passwordInput = it
               errorMessage = null
             },
-            label = { Text("Password") },
+            label = { Text("Password (Simple: 123)") },
             leadingIcon = {
               Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF64748B))
             },
@@ -191,7 +225,7 @@ fun LoginScreen(
               if (success) {
                 onLoginSuccess()
               } else {
-                errorMessage = "Invalid User ID or Password. Check credentials."
+                errorMessage = "Invalid User ID or Password. Try ID: supervisor / Pass: 123"
               }
             },
             modifier = Modifier
@@ -201,7 +235,7 @@ fun LoginScreen(
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = NflRoyalBlue)
           ) {
-            Text("Login to NOS Live", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Login to NFL LIVE", fontWeight = FontWeight.Bold, fontSize = 14.sp)
           }
 
           // Initial Admin Setup Button
@@ -210,15 +244,15 @@ fun LoginScreen(
             horizontalArrangement = Arrangement.Center
           ) {
             TextButton(onClick = { showAdminSetupDialog = true }) {
-              Text("⚙️ Setup / Reset Initial Admin ID", fontSize = 11.sp, color = Color(0xFF0284C7))
+              Text("⚙️ Configure Custom Admin ID", fontSize = 11.sp, color = Color(0xFF0284C7))
             }
           }
         }
       }
 
-      Spacer(modifier = Modifier.height(24.dp))
+      Spacer(modifier = Modifier.height(20.dp))
 
-      // 3. Quick Test Account Switcher Chips (Convenient for Review)
+      // 3. Quick Role Preset Logins (Designation-wise demo accounts)
       Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -226,10 +260,34 @@ fun LoginScreen(
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
       ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Text(
+              text = "Demo Accounts (Designation Wise):",
+              fontSize = 12.sp,
+              fontWeight = FontWeight.Bold,
+              color = Color.White
+            )
+            Surface(
+              color = Color(0xFF0369A1),
+              shape = RoundedCornerShape(4.dp)
+            ) {
+              Text(
+                text = "Pass: 123",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+              )
+            }
+          }
+
           Text(
-            text = "Quick Role Preset Logins (Tap to Test):",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
+            text = "Tap any role to immediately login and test module features:",
+            fontSize = 10.sp,
             color = Color(0xFF94A3B8)
           )
 
@@ -241,7 +299,7 @@ fun LoginScreen(
                 repository.login(user.id, user.password)
                 onLoginSuccess()
               },
-              shape = RoundedCornerShape(6.dp),
+              shape = RoundedCornerShape(8.dp),
               color = Color(0xFF0F172A),
               border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
               modifier = Modifier.fillMaxWidth()
@@ -249,20 +307,42 @@ fun LoginScreen(
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
-                  .padding(horizontal = 10.dp, vertical = 6.dp),
+                  .padding(horizontal = 10.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
               ) {
-                Column {
-                  Text(user.name, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
-                  Text("ID: ${user.id} • Pass: ${user.password}", fontSize = 9.sp, color = Color(0xFF94A3B8))
+                Column(modifier = Modifier.weight(1f)) {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                  ) {
+                    Text(
+                      text = user.name,
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 12.sp,
+                      color = Color.White
+                    )
+                  }
+                  Text(
+                    text = "ID: ${user.id}  •  Password: ${user.password}",
+                    fontSize = 10.sp,
+                    color = Color(0xFF38BDF8),
+                    fontWeight = FontWeight.SemiBold
+                  )
                 }
+
                 Surface(
                   color = when (user.role) {
-                    UserRole.ADMIN -> Color(0xFF7F1D1D)
-                    UserRole.SUPERVISOR -> Color(0xFF1E3A8A)
-                    UserRole.MECHANIC -> Color(0xFF78350F)
-                    else -> Color(0xFF14532D)
+                    UserRole.ADMIN -> Color(0xFF991B1B)
+                    UserRole.SUPERVISOR -> Color(0xFF1D4ED8)
+                    UserRole.PRODUCTION_REPORTER -> Color(0xFF047857)
+                    UserRole.QUALITY_REPORTER -> Color(0xFFB45309)
+                    UserRole.AUDITOR -> Color(0xFF7C3AED)
+                    UserRole.PRODUCTION_MANAGER, UserRole.QUALITY_MANAGER -> Color(0xFF0F766E)
+                    UserRole.MECHANIC -> Color(0xFFC2410C)
+                    UserRole.IE -> Color(0xFF4338CA)
+                    UserRole.INPUT_MATERIAL -> Color(0xFF475569)
+                    UserRole.MANAGEMENT_VIEW -> Color(0xFF0284C7)
                   },
                   shape = RoundedCornerShape(4.dp)
                 ) {
@@ -271,7 +351,7 @@ fun LoginScreen(
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                   )
                 }
               }

@@ -21,12 +21,13 @@ import { IncidentManager } from './components/IncidentManager';
 import { EntryForms } from './components/EntryForms';
 import { ReportsView } from './components/ReportsView';
 import { AdminView } from './components/AdminView';
+import { LoginView } from './components/LoginView';
 
 export default function App() {
   // Master state
   const [lines, setLines] = useState<LineMasterItem[]>(ALL_FACTORY_LINES);
-  const [users] = useState<UserAccount[]>(STANDARD_USERS);
-  const [currentUser, setCurrentUser] = useState<UserAccount>(STANDARD_USERS[3]); // Supervisor default
+  const [users, setUsers] = useState<UserAccount[]>(STANDARD_USERS);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null); // Start null so Login interface appears!
 
   // Display mode: 'MOBILE' or 'TV'
   const [activeDeviceView, setActiveDeviceView] = useState<'MOBILE' | 'TV'>('MOBILE');
@@ -89,6 +90,7 @@ export default function App() {
 
   // Check if there are unmuted active incidents targeted at current user role
   const hasUnmutedAlarmForRole = useMemo(() => {
+    if (!currentUser) return false;
     return incidents.some(inc => {
       if (inc.status === 'RESOLVED' || inc.isMutedOnCurrentDevice) return false;
       if (currentUser.role === 'ADMIN') return true;
@@ -99,7 +101,7 @@ export default function App() {
       if (inc.category === 'LOW_PRODUCTION' && currentUser.role === 'PRODUCTION_MANAGER') return true;
       return false;
     });
-  }, [incidents, currentUser.role]);
+  }, [incidents, currentUser]);
 
   // Handle background beeper when alarm is triggered
   useEffect(() => {
@@ -265,6 +267,19 @@ export default function App() {
     incidentsCount: incidents.filter(i => i.isDemo).length
   };
 
+  // If user is not logged in, display the Login Interface
+  if (!currentUser) {
+    return (
+      <LoginView
+        users={users}
+        onLogin={u => setCurrentUser(u)}
+        onUpdateAdmin={newAdmin => {
+          setUsers(prev => [newAdmin, ...prev.filter(u => u.username !== newAdmin.username)]);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F0F4F8] text-slate-900 font-sans flex flex-col">
       {/* Top Application Global Control Bar */}
@@ -287,6 +302,16 @@ export default function App() {
             <span className="bg-blue-600 text-[9px] px-1.5 py-0.2 rounded font-extrabold">
               {currentUser.role}
             </span>
+          </button>
+
+          {/* Logout Button to return to Login */}
+          <button
+            onClick={() => setCurrentUser(null)}
+            className="text-[10px] bg-red-950/70 hover:bg-red-900 text-red-200 border border-red-800/80 px-2 py-1 rounded-lg font-bold transition flex items-center gap-1"
+            title="Log out to Login screen"
+          >
+            <span>🚪</span>
+            <span>Logout</span>
           </button>
         </div>
 

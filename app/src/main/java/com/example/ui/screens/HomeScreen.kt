@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -45,7 +46,8 @@ fun HomeScreen(
   onOpenDrawer: () -> Unit = {},
   onNavigateToLineDeepDive: (String) -> Unit = {},
   onNavigateToMonthlySetup: () -> Unit = {},
-  onNavigateToAdminUsers: () -> Unit = {}
+  onNavigateToAdminUsers: () -> Unit = {},
+  onNavigateToLogin: () -> Unit = {}
 ) {
   val currentFloor by repository.currentFloor.collectAsState()
   val currentPeriod by repository.currentPeriod.collectAsState()
@@ -114,13 +116,13 @@ fun HomeScreen(
                   horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                   Icon(
-                    painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_nos_logo),
-                    contentDescription = "NOS Logo",
+                    painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_nfl_logo),
+                    contentDescription = "NFL Logo",
                     modifier = Modifier.size(16.dp),
                     tint = Color.Unspecified
                   )
                   Text(
-                    text = "NOS Live",
+                    text = "NFL LIVE",
                     color = Color(0xFF0A2558),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Black
@@ -130,7 +132,7 @@ fun HomeScreen(
 
               Column(modifier = Modifier.weight(1f, fill = false)) {
                 Text(
-                  text = "Northern Operating System",
+                  text = "Northern Fashion Limited",
                   color = Color.White,
                   fontSize = 12.sp,
                   fontWeight = FontWeight.Bold,
@@ -138,7 +140,7 @@ fun HomeScreen(
                   overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                  text = "MES Industrial Monitor",
+                  text = "Live Factory Dashboard",
                   color = Color(0xFFB0C4DE),
                   fontSize = 9.sp,
                   maxLines = 1,
@@ -176,6 +178,34 @@ fun HomeScreen(
                     letterSpacing = 0.5.sp,
                     maxLines = 1,
                     softWrap = false
+                  )
+                }
+              }
+
+              // Direct Login / Role Switch button right in header
+              Surface(
+                onClick = onNavigateToLogin,
+                color = Color(0xFF1E3A8A),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF60A5FA).copy(alpha = 0.6f)),
+                modifier = Modifier.testTag("home_login_btn")
+              ) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.LockOpen,
+                    contentDescription = "Login",
+                    tint = Color(0xFFFDE047),
+                    modifier = Modifier.size(12.dp)
+                  )
+                  Text(
+                    text = "Login",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
                   )
                 }
               }
@@ -669,7 +699,7 @@ fun HomeScreen(
         ) {
           Column {
             Text(
-              text = "NOS Live — Northern Operating System",
+              text = "NFL LIVE — Northern Fashion Limited",
               fontSize = 11.sp,
               fontWeight = FontWeight.Bold,
               color = Color(0xFF0F172A)

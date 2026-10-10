@@ -221,6 +221,13 @@ fun LineDeepDiveScreen(
             )
           }
 
+          // Line Efficiency Speedometer Dial
+          SpeedometerGauge(
+            value = todayEffPct,
+            targetValue = lineSetup.targetEfficiencyPct,
+            modifier = Modifier.fillMaxWidth().height(130.dp)
+          )
+
           // Column / Bar Chart: Hourly Target vs Output
           Text("Column Chart: Hourly Target vs Output (Pieces)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
           HourlyTargetVsOutputChart(hourlyProd)
