@@ -17,9 +17,10 @@ enum class FloorScope(val displayName: String, val apiValue: String) {
 }
 
 enum class PeriodScope(val displayName: String) {
+  YESTERDAY("Yesterday"),
   TODAY("Today"),
-  WEEK("Week"),
-  MONTH("Month")
+  WEEK("Weekly"),
+  MONTH("Monthly")
 }
 
 enum class UserRole(val displayName: String, val group: String) {
