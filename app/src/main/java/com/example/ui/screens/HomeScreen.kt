@@ -55,6 +55,7 @@ fun HomeScreen(
 
   var selectedChartTab by remember { mutableStateOf("SPEEDOMETER") } // SPEEDOMETER | COLUMN | DONUT | PARETO
   var selectedLineDetail by remember { mutableStateOf<LinePerformancePoint?>(null) }
+  var showClearSampleDataDialog by remember { mutableStateOf(false) }
 
   val openIncidents = incidents.filter { it.status != IncidentStatus.RESOLVED }
 
@@ -365,6 +366,20 @@ fun HomeScreen(
         }
       }
 
+      // Admin-only data reset. It clears sample records only, never non-sample submissions.
+      if (currentRole == UserRole.ADMIN) {
+        OutlinedButton(
+          onClick = { showClearSampleDataDialog = true },
+          modifier = Modifier.fillMaxWidth(),
+          colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB91C1C)),
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
+        ) {
+          Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(Modifier.width(8.dp))
+          Text("Clear All Sample Data", fontWeight = FontWeight.Bold)
+        }
+      }
+
       // 3. Multi-Visual Executive KPI Cards Grid (Speedometer, Donut, Trend, Quality)
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -669,6 +684,27 @@ fun HomeScreen(
         }
       }
     }
+  }
+
+  if (showClearSampleDataDialog && currentRole == UserRole.ADMIN) {
+    AlertDialog(
+      onDismissRequest = { showClearSampleDataDialog = false },
+      title = { Text("Clear all sample data?", fontWeight = FontWeight.Black) },
+      text = {
+        Text("This removes only records marked as sample data (production, quality, targets and incidents). Non-sample records are preserved. The sample dataset will not be automatically added again after restarting the app.")
+      },
+      confirmButton = {
+        TextButton(onClick = {
+          repository.removeAllDemoData()
+          showClearSampleDataDialog = false
+        }) {
+          Text("Clear Sample Data", color = Color(0xFFB91C1C), fontWeight = FontWeight.Bold)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showClearSampleDataDialog = false }) { Text("Cancel") }
+      }
+    )
   }
 
   // Detail Modal for selected line
