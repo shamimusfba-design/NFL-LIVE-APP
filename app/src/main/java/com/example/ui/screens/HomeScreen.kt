@@ -196,7 +196,7 @@ fun HomeScreen(
                 .padding(3.dp),
               horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-              FloorScope.values().forEach { floor ->
+              FloorScope.values().filterNot { it.displayName.equals("Finishing", ignoreCase = true) }.forEach { floor ->
                 val isSelected = currentFloor == floor
                 Surface(
                   onClick = { repository.setFloor(floor) },
