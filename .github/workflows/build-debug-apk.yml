@@ -31,8 +31,10 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x ./gradlew
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
 
       - name: Create local debug signing key required by project
         run: |
@@ -45,7 +47,7 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
 
       - name: Rename APK for easy download
         run: cp app/build/outputs/apk/debug/app-debug.apk NOS-Live-app-debug.apk
