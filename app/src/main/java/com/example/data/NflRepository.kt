@@ -258,6 +258,38 @@ class NflRepository(private val context: Context) {
     _currentPeriod.value = period
   }
 
+  fun getPeriodLabel(period: PeriodScope = _currentPeriod.value): String {
+    val calendar = Calendar.getInstance()
+    when (period) {
+      PeriodScope.YESTERDAY -> calendar.add(Calendar.DAY_OF_YEAR, -1)
+      PeriodScope.TODAY -> Unit
+      PeriodScope.WEEK -> return "Last 7 days"
+      PeriodScope.MONTH -> return SimpleDateFormat("MMMM yyyy", Locale.US).format(calendar.time)
+    }
+    return SimpleDateFormat("dd MMM yyyy", Locale.US).format(calendar.time)
+  }
+
+  private fun isDateInPeriod(date: String, period: PeriodScope): Boolean {
+    val todayCalendar = Calendar.getInstance()
+    val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(todayCalendar.time)
+    return when (period) {
+      PeriodScope.TODAY -> date == today
+      PeriodScope.YESTERDAY -> {
+        todayCalendar.add(Calendar.DAY_OF_YEAR, -1)
+        date == SimpleDateFormat("yyyy-MM-dd", Locale.US).format(todayCalendar.time)
+      }
+      PeriodScope.WEEK -> {
+        todayCalendar.add(Calendar.DAY_OF_YEAR, -6)
+        val startDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(todayCalendar.time)
+        date >= startDate && date <= today
+      }
+      PeriodScope.MONTH -> date.startsWith(today.substring(0, 7))
+    }
+  }
+
+  private fun isInSelectedFloor(floor: String, floorScope: FloorScope): Boolean =
+    floorScope == FloorScope.ALL || floor.equals(floorScope.apiValue, ignoreCase = true)
+
   fun setRole(role: UserRole) {
     _currentRole.value = role
     _currentUserName.value = when (role) {
@@ -746,7 +778,10 @@ class NflRepository(private val context: Context) {
   }
 
   // Computes dashboard data ensuring ALL real lines of the floor are always present
-  fun getTvDashboardData(floorScope: FloorScope = _currentFloor.value): TvDashboardData {
+  fun getTvDashboardData(
+    floorScope: FloorScope = _currentFloor.value,
+    periodScope: PeriodScope = _currentPeriod.value
+  ): TvDashboardData {
     val floorFilter = floorScope.apiValue
 
     // Ensure all real lines for this floor are always present
@@ -754,8 +789,12 @@ class NflRepository(private val context: Context) {
 
     val summaries = floorLines.map { lineInfo ->
       val setup = _targets.value.find { it.lineId == lineInfo.id } ?: getLineSetup(lineInfo.id).copy(floor = lineInfo.floor)
-      val prods = _productionEntries.value.filter { it.lineId == setup.lineId }
-      val qas = _qualityEntries.value.filter { it.lineId == setup.lineId }
+      val prods = _productionEntries.value.filter {
+        it.lineId == setup.lineId && isDateInPeriod(it.date, periodScope)
+      }
+      val qas = _qualityEntries.value.filter {
+        it.lineId == setup.lineId && isDateInPeriod(it.date, periodScope)
+      }
 
       val hasReported = prods.isNotEmpty()
       val outputQty = if (hasReported) prods.sumOf { it.outputQty } else null
@@ -809,9 +848,9 @@ class NflRepository(private val context: Context) {
     val totalTarget = summaries.sumOf { it.targetPcs }
     val totalTargetDue = summaries.sumOf { it.targetDuePcs }
 
-    val effSum = reportedOnly.mapNotNull { it.todayEfficiencyPct }.average().let { if (it.isNaN()) 68.0 else Math.round(it * 10.0) / 10.0 }
-    val targetEffAvg = summaries.map { it.targetEfficiencyPct }.average().let { if (it.isNaN()) 75.0 else Math.round(it * 10.0) / 10.0 }
-    val oqlAvg = reportedOnly.mapNotNull { it.todayOqlPct }.average().let { if (it.isNaN()) 3.81 else Math.round(it * 100.0) / 100.0 }
+    val effSum = reportedOnly.mapNotNull { it.todayEfficiencyPct }.average().let { if (it.isNaN()) 0.0 else Math.round(it * 10.0) / 10.0 }
+    val targetEffAvg = summaries.map { it.targetEfficiencyPct }.average().let { if (it.isNaN()) 0.0 else Math.round(it * 10.0) / 10.0 }
+    val oqlAvg = reportedOnly.mapNotNull { it.todayOqlPct }.average().let { if (it.isNaN()) 0.0 else Math.round(it * 100.0) / 100.0 }
 
     val kpi = FloorKpiSummary(
       todayEfficiency = effSum,
@@ -850,19 +889,26 @@ class NflRepository(private val context: Context) {
       )
     }
 
-    val qaTrend = listOf(
-      DailyQaTrend("02 Oct", 3.9, 6.1),
-      DailyQaTrend("03 Oct", 3.8, 5.8),
-      DailyQaTrend("04 Oct", 3.6, 5.6),
-      DailyQaTrend("05 Oct", 3.5, 5.4),
-      DailyQaTrend("06 Oct", 3.4, 5.2),
-      DailyQaTrend("07 Oct", 3.3, 5.1),
-      DailyQaTrend("08 Oct", 3.2, 4.9),
-      DailyQaTrend("09 Oct", 3.1, 4.8)
-    )
+    val periodQuality = _qualityEntries.value.filter {
+      isInSelectedFloor(it.floor, floorScope) && isDateInPeriod(it.date, periodScope)
+    }
+    val qaTrend = periodQuality.groupBy { it.date }.toSortedMap().map { (date, records) ->
+      val checked = records.sumOf { it.checkedGarments }
+      val defective = records.sumOf { it.defectiveGarments }
+      val actualOql = if (checked > 0) (defective.toDouble() / checked) * 100.0 else 0.0
+      val parsedDate = runCatching {
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)
+      }.getOrNull()
+      DailyQaTrend(
+        dateLabel = parsedDate?.let { SimpleDateFormat("dd MMM", Locale.US).format(it) } ?: date,
+        bsOqlPct = Math.round(actualOql * 100.0) / 100.0,
+        nflAqcPct = 5.0
+      )
+    }
 
     return TvDashboardData(
       floorScope = floorScope,
+      periodScope = periodScope,
       kpis = kpi,
       linePerformance = summaries,
       topDefects = topDefects,
