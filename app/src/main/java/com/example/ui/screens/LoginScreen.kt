@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -26,8 +28,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.NflRepository
 import com.example.model.UserRole
-import com.example.ui.theme.NflGreen
-import com.example.ui.theme.NflRoyalBlue
+
+private val LoginBg = Color(0xFF061426)
+private val LoginSurface = Color(0xFF0B2038)
+private val LoginSurfaceAlt = Color(0xFF0E2945)
+private val LoginBorder = Color(0xFF234565)
+private val LoginText = Color(0xFFF3F7FC)
+private val LoginMuted = Color(0xFFA8BCD2)
+private val LoginCyan = Color(0xFF22B8F0)
+private val LoginTeal = Color(0xFF20D3A2)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,8 +49,6 @@ fun LoginScreen(
   var passwordInput by remember { mutableStateOf("123") }
   var passwordVisible by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
-
-  // Admin Initial Setup Modal State
   var showAdminSetupDialog by remember { mutableStateOf(false) }
   var newAdminId by remember { mutableStateOf("admin") }
   var newAdminPass by remember { mutableStateOf("123") }
@@ -50,350 +57,224 @@ fun LoginScreen(
   Box(
     modifier = Modifier
       .fillMaxSize()
-      .background(Color(0xFF0F172A))
+      .background(Brush.verticalGradient(listOf(Color(0xFF061426), Color(0xFF092543), Color(0xFF04101F))))
   ) {
     Column(
       modifier = Modifier
         .fillMaxSize()
         .verticalScroll(rememberScrollState())
-        .padding(horizontal = 20.dp, vertical = 32.dp),
+        .padding(horizontal = 20.dp, vertical = 24.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center
     ) {
-      // 1. App Brand Header with Official Company Logo
+      Spacer(Modifier.height(8.dp))
+
+      // Official company logo: reuse the existing vector asset unchanged.
       Surface(
         color = Color.White,
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 8.dp,
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
-        modifier = Modifier.size(80.dp)
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 10.dp,
+        border = BorderStroke(1.dp, LoginTeal.copy(alpha = 0.65f)),
+        modifier = Modifier.size(78.dp)
       ) {
-        Box(
-          contentAlignment = Alignment.Center,
-          modifier = Modifier.padding(6.dp)
-        ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(7.dp)) {
           Icon(
             painter = painterResource(com.example.R.drawable.ic_nfl_logo),
-            contentDescription = "Northern Fashion Limited Company Logo",
-            modifier = Modifier.size(64.dp),
+            contentDescription = "Northern Fashion Limited company logo",
+            modifier = Modifier.fillMaxSize(),
             tint = Color.Unspecified
           )
         }
       }
-
-      Spacer(modifier = Modifier.height(12.dp))
-
-      Text(
-        text = "NFL LIVE",
-        fontSize = 26.sp,
-        fontWeight = FontWeight.Black,
-        color = Color.White
-      )
-      Text(
-        text = "Northern Fashion Limited Live",
-        fontSize = 12.sp,
-        color = Color(0xFF94A3B8)
-      )
-
-      Spacer(modifier = Modifier.height(8.dp))
-
-      // Offline Local System Status Pill (Directly answers user's question!)
+      Spacer(Modifier.height(14.dp))
+      Text("NFL LIVE", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp, color = LoginText)
+      Spacer(Modifier.height(3.dp))
+      Text("NORTHERN FASHION LIMITED", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, color = LoginMuted)
+      Spacer(Modifier.height(14.dp))
       Surface(
-        color = Color(0xFF064E3B),
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f))
+        color = Color(0xFF063A3A).copy(alpha = 0.75f),
+        shape = RoundedCornerShape(50),
+        border = BorderStroke(1.dp, LoginTeal.copy(alpha = 0.6f))
       ) {
         Row(
-          modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+          modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp)
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-          Box(
-            modifier = Modifier
-              .size(6.dp)
-              .clip(CircleShape)
-              .background(Color(0xFF34D399))
-          )
-          Text(
-            text = "Local System Ready • No Server Upload Needed",
-            color = Color(0xFF6EE7B7),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold
-          )
+          Icon(Icons.Default.Lock, contentDescription = null, tint = LoginTeal, modifier = Modifier.size(15.dp))
+          Text("SECURE WORKSPACE", color = LoginTeal, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
       }
+      Spacer(Modifier.height(24.dp))
 
-      Spacer(modifier = Modifier.height(20.dp))
-
-      // 2. Login Card
       Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(8.dp)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = LoginSurface.copy(alpha = 0.96f)),
+        border = BorderStroke(1.dp, LoginBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
       ) {
         Column(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(18.dp),
-          verticalArrangement = Arrangement.spacedBy(12.dp)
+          modifier = Modifier.fillMaxWidth().padding(20.dp),
+          verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-          Text(
-            text = "Sign In to Your Account",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
-          )
-          Text(
-            text = "Enter your Designation User ID and Password (Default: 123)",
-            fontSize = 11.sp,
-            color = Color(0xFF64748B)
-          )
+          Text("Welcome back", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = LoginText)
+          Text("Sign in to your workspace", fontSize = 14.sp, color = LoginMuted)
+          Spacer(Modifier.height(2.dp))
 
-          // User ID Field
           OutlinedTextField(
             value = usernameInput,
-            onValueChange = {
-              usernameInput = it
-              errorMessage = null
-            },
-            label = { Text("User ID (e.g. admin, supervisor, qc)") },
-            leadingIcon = {
-              Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF64748B))
-            },
+            onValueChange = { usernameInput = it; errorMessage = null },
+            label = { Text("Employee ID", color = LoginMuted) },
+            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = LoginCyan) },
             singleLine = true,
-            modifier = Modifier
-              .fillMaxWidth()
-              .testTag("login_id_input"),
-            shape = RoundedCornerShape(8.dp)
+            modifier = Modifier.fillMaxWidth().testTag("login_id_input"),
+            shape = RoundedCornerShape(14.dp),
+            colors = loginFieldColors()
           )
-
-          // Password Field
           OutlinedTextField(
             value = passwordInput,
-            onValueChange = {
-              passwordInput = it
-              errorMessage = null
-            },
-            label = { Text("Password (Simple: 123)") },
-            leadingIcon = {
-              Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF64748B))
-            },
+            onValueChange = { passwordInput = it; errorMessage = null },
+            label = { Text("Password", color = LoginMuted) },
+            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = LoginCyan) },
             trailingIcon = {
               IconButton(onClick = { passwordVisible = !passwordVisible }) {
                 Icon(
                   imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                  contentDescription = null,
-                  tint = Color(0xFF64748B)
+                  contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                  tint = LoginMuted
                 )
               }
             },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier
-              .fillMaxWidth()
-              .testTag("login_password_input"),
-            shape = RoundedCornerShape(8.dp)
+            modifier = Modifier.fillMaxWidth().testTag("login_password_input"),
+            shape = RoundedCornerShape(14.dp),
+            colors = loginFieldColors()
           )
 
-          // Error Message Banner
           AnimatedVisibility(visible = errorMessage != null) {
-            Surface(
-              shape = RoundedCornerShape(6.dp),
-              color = Color(0xFFFEE2E2),
-              modifier = Modifier.fillMaxWidth()
-            ) {
-              Text(
-                text = errorMessage ?: "",
-                color = Color(0xFFDC2626),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(10.dp)
-              )
+            Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFF4A1F2B), modifier = Modifier.fillMaxWidth()) {
+              Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFFFA3AE), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(errorMessage ?: "", color = Color(0xFFFFC6CD), fontSize = 12.sp)
+              }
             }
           }
 
-          // Login Button
           Button(
             onClick = {
               if (usernameInput.isBlank() || passwordInput.isBlank()) {
-                errorMessage = "Please enter both User ID and Password."
+                errorMessage = "Please enter both Employee ID and password."
                 return@Button
               }
-              val success = repository.login(usernameInput, passwordInput)
-              if (success) {
-                onLoginSuccess()
-              } else {
-                errorMessage = "Invalid User ID or Password. Try ID: supervisor / Pass: 123"
-              }
+              if (repository.login(usernameInput, passwordInput)) onLoginSuccess()
+              else errorMessage = "The Employee ID or password is incorrect."
             },
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(48.dp)
-              .testTag("login_submit_btn"),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = NflRoyalBlue)
+            modifier = Modifier.fillMaxWidth().height(54.dp).testTag("login_submit_btn"),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = LoginCyan, contentColor = Color(0xFF041526))
           ) {
-            Text("Login to NFL LIVE", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+            Text("Sign in securely", fontWeight = FontWeight.Bold, fontSize = 15.sp)
           }
 
-          // Initial Admin Setup Button
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+          TextButton(onClick = { errorMessage = "Please contact your system administrator for sign-in assistance." }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text("Need help signing in?", color = LoginCyan, fontSize = 12.sp)
+          }
+          HorizontalDivider(color = LoginBorder)
+          TextButton(
+            onClick = { showAdminSetupDialog = true },
+            modifier = Modifier.fillMaxWidth()
           ) {
-            TextButton(onClick = { showAdminSetupDialog = true }) {
-              Text("⚙️ Configure Custom Admin ID", fontSize = 11.sp, color = Color(0xFF0284C7))
-            }
+            Icon(Icons.Default.Settings, contentDescription = null, tint = LoginMuted, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Configure administrator access", color = LoginMuted, fontSize = 12.sp)
           }
         }
       }
 
-      Spacer(modifier = Modifier.height(20.dp))
-
-      // 3. Quick Role Preset Logins (Designation-wise demo accounts)
+      Spacer(Modifier.height(18.dp))
       Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = LoginSurface.copy(alpha = 0.82f)),
+        border = BorderStroke(1.dp, LoginBorder)
       ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Text(
-              text = "Demo Accounts (Designation Wise):",
-              fontSize = 12.sp,
-              fontWeight = FontWeight.Bold,
-              color = Color.White
-            )
-            Surface(
-              color = Color(0xFF0369A1),
-              shape = RoundedCornerShape(4.dp)
-            ) {
-              Text(
-                text = "Pass: 123",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-              )
-            }
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Quick access", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = LoginText)
+            Spacer(Modifier.weight(1f))
+            Text("ROLE SHORTCUTS", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = LoginMuted)
           }
-
-          Text(
-            text = "Tap any role to immediately login and test module features:",
-            fontSize = 10.sp,
-            color = Color(0xFF94A3B8)
-          )
-
+          Text("Select your account to fill the sign-in fields.", fontSize = 11.sp, color = LoginMuted)
           users.forEach { user ->
             Surface(
               onClick = {
                 usernameInput = user.id
                 passwordInput = user.password
-                repository.login(user.id, user.password)
-                onLoginSuccess()
+                errorMessage = null
               },
-              shape = RoundedCornerShape(8.dp),
-              color = Color(0xFF0F172A),
-              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+              shape = RoundedCornerShape(13.dp),
+              color = LoginSurfaceAlt,
+              border = BorderStroke(1.dp, LoginBorder),
               modifier = Modifier.fillMaxWidth()
             ) {
               Row(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .padding(horizontal = 10.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
               ) {
-                Column(modifier = Modifier.weight(1f)) {
-                  Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                  ) {
-                    Text(
-                      text = user.name,
-                      fontWeight = FontWeight.Bold,
-                      fontSize = 12.sp,
-                      color = Color.White
-                    )
-                  }
-                  Text(
-                    text = "ID: ${user.id}  •  Password: ${user.password}",
-                    fontSize = 10.sp,
-                    color = Color(0xFF38BDF8),
-                    fontWeight = FontWeight.SemiBold
-                  )
-                }
-
-                Surface(
-                  color = when (user.role) {
-                    UserRole.ADMIN -> Color(0xFF991B1B)
-                    UserRole.SUPERVISOR -> Color(0xFF1D4ED8)
-                    UserRole.PRODUCTION_REPORTER -> Color(0xFF047857)
-                    UserRole.QUALITY_REPORTER -> Color(0xFFB45309)
-                    UserRole.AUDITOR -> Color(0xFF7C3AED)
-                    UserRole.PRODUCTION_MANAGER, UserRole.QUALITY_MANAGER -> Color(0xFF0F766E)
-                    UserRole.MECHANIC -> Color(0xFFC2410C)
-                    UserRole.IE -> Color(0xFF4338CA)
-                    UserRole.INPUT_MATERIAL -> Color(0xFF475569)
-                    UserRole.MANAGEMENT_VIEW -> Color(0xFF0284C7)
-                  },
-                  shape = RoundedCornerShape(4.dp)
+                Box(
+                  modifier = Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(LoginCyan.copy(alpha = 0.12f)),
+                  contentAlignment = Alignment.Center
                 ) {
-                  Text(
-                    text = user.role.displayName,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                  Icon(
+                    imageVector = when (user.role) {
+                      UserRole.ADMIN -> Icons.Default.AdminPanelSettings
+                      UserRole.SUPERVISOR -> Icons.Default.Groups
+                      UserRole.QUALITY_REPORTER, UserRole.QUALITY_MANAGER, UserRole.AUDITOR -> Icons.Default.Verified
+                      else -> Icons.Default.Person
+                    },
+                    contentDescription = null,
+                    tint = LoginCyan,
+                    modifier = Modifier.size(21.dp)
                   )
                 }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                  Text(user.name, color = LoginText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                  Text(user.role.displayName, color = LoginMuted, fontSize = 11.sp)
+                }
+                Icon(Icons.Default.ChevronRight, contentDescription = "Select account", tint = LoginMuted)
               }
             }
           }
         }
       }
+      Spacer(Modifier.height(22.dp))
+      Text("NORTHERN FASHION LIMITED", color = LoginMuted.copy(alpha = 0.85f), fontSize = 10.sp, letterSpacing = 1.5.sp)
+      Spacer(Modifier.height(8.dp))
     }
   }
 
-  // DIALOG: Initial Admin ID & Password Setup
   if (showAdminSetupDialog) {
     AlertDialog(
       onDismissRequest = { showAdminSetupDialog = false },
-      title = { Text("Configure Admin Credentials", fontWeight = FontWeight.Bold) },
+      containerColor = LoginSurface,
+      titleContentColor = LoginText,
+      textContentColor = LoginMuted,
+      title = { Text("Configure administrator access", fontWeight = FontWeight.Bold) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-          Text("Set initial Admin ID and Password for controlling modules and user assignment:", fontSize = 12.sp)
-
+          Text("Set the initial administrator account for this device.", fontSize = 12.sp)
+          OutlinedTextField(value = newAdminName, onValueChange = { newAdminName = it }, label = { Text("Administrator name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = loginFieldColors())
+          OutlinedTextField(value = newAdminId, onValueChange = { newAdminId = it }, label = { Text("Administrator ID") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = loginFieldColors())
           OutlinedTextField(
-            value = newAdminName,
-            onValueChange = { newAdminName = it },
-            label = { Text("Admin Full Name") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-          )
-
-          OutlinedTextField(
-            value = newAdminId,
-            onValueChange = { newAdminId = it },
-            label = { Text("Admin User ID") },
-            placeholder = { Text("e.g. admin") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-          )
-
-          OutlinedTextField(
-            value = newAdminPass,
-            onValueChange = { newAdminPass = it },
-            label = { Text("Admin Password") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            value = newAdminPass, onValueChange = { newAdminPass = it }, label = { Text("Administrator password") },
+            visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth(), colors = loginFieldColors()
           )
         }
       },
@@ -408,16 +289,23 @@ fun LoginScreen(
               onLoginSuccess()
             }
           },
-          colors = ButtonDefaults.buttonColors(containerColor = NflRoyalBlue)
-        ) {
-          Text("Save & Login as Admin", fontWeight = FontWeight.Bold)
-        }
+          colors = ButtonDefaults.buttonColors(containerColor = LoginCyan, contentColor = LoginBg)
+        ) { Text("Save & sign in", fontWeight = FontWeight.Bold) }
       },
-      dismissButton = {
-        TextButton(onClick = { showAdminSetupDialog = false }) {
-          Text("Cancel")
-        }
-      }
+      dismissButton = { TextButton(onClick = { showAdminSetupDialog = false }) { Text("Cancel", color = LoginMuted) } }
     )
   }
 }
+
+@Composable
+private fun loginFieldColors() = OutlinedTextFieldDefaults.colors(
+  focusedTextColor = LoginText,
+  unfocusedTextColor = LoginText,
+  focusedBorderColor = LoginCyan,
+  unfocusedBorderColor = LoginBorder,
+  cursorColor = LoginCyan,
+  focusedContainerColor = LoginBg.copy(alpha = 0.35f),
+  unfocusedContainerColor = LoginBg.copy(alpha = 0.35f),
+  focusedLabelColor = LoginCyan,
+  unfocusedLabelColor = LoginMuted
+)
