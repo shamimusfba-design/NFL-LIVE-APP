@@ -380,7 +380,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
             </div>
 
             {/* Target vs Output Bar Chart (Image 1 bottom card) */}
-            <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm">
+            <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm overflow-x-auto">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold text-slate-800">
                   Target vs Output — {selectedFloor}
@@ -396,8 +396,8 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
               </div>
 
               {/* Grouped Bars */}
-              <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200">
-                {lineSummaries.slice(0, 5).map(line => {
+              <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200" style={{ minWidth: `${Math.max(520, lineSummaries.length * 70)}px` }}>
+                {lineSummaries.map(line => {
                   const maxTarget = 650;
                   const targetH = Math.round((line.target / maxTarget) * 120);
                   const outputH = line.output !== null ? Math.round((line.output / maxTarget) * 120) : 0;
@@ -432,6 +432,65 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                 })}
               </div>
             </div>
+
+            {/* Home-page Line-wise Performance Matrix: all targeted lines */}
+            <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-3 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">Line-wise Performance Matrix</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">All lines for {selectedFloor} • {lineSummaries.length} lines</p>
+                </div>
+                <button
+                  onClick={() => setMobileSubTab('TABLE')}
+                  className="shrink-0 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1.5"
+                >
+                  Full details →
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-[11px] text-left">
+                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                    <tr>
+                      <th className="px-3 py-2.5 font-extrabold">Line</th>
+                      <th className="px-3 py-2.5 text-right font-extrabold">Target</th>
+                      <th className="px-3 py-2.5 text-right font-extrabold">Output</th>
+                      <th className="px-3 py-2.5 text-right font-extrabold">Ach %</th>
+                      <th className="px-3 py-2.5 text-right font-extrabold">Efficiency</th>
+                      <th className="px-3 py-2.5 text-right font-extrabold">OQL</th>
+                      <th className="px-3 py-2.5 text-right font-extrabold">DHU</th>
+                      <th className="px-3 py-2.5 text-center font-extrabold">Reporting</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {lineSummaries.map(line => (
+                      <tr key={`home-matrix-${line.lineId}`} className="hover:bg-slate-50">
+                        <td className="px-3 py-2.5 font-extrabold text-slate-900">{line.lineId}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{line.target.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums font-bold">{line.output === null ? '—' : line.output.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{line.achievementPct === null ? '—' : `${line.achievementPct}%`}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{line.efficiencyPct === null ? '—' : `${line.efficiencyPct}%`}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{line.todayOqlPct === null ? '—' : `${line.todayOqlPct}%`}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{line.dhu === null ? '—' : line.dhu}</td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className={`inline-flex rounded-full px-2 py-1 text-[9px] font-extrabold whitespace-nowrap ${
+                            line.reportingStatus === 'Complete'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : line.reportingStatus === 'In Progress'
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-red-50 text-red-700'
+                          }`}>
+                            {line.reportingStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-3 py-2 bg-slate-50 text-[10px] text-slate-500 border-t border-slate-100">
+                Swipe horizontally to see every metric. Select “Full details” for expandable line records.
+              </div>
+            </section>
           </>
         )}
 
@@ -443,7 +502,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
             </h2>
 
             {/* Line Efficiency — Today vs Month (Grouped bars) */}
-            <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm">
+            <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm overflow-x-auto">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-slate-800">
                   Line Efficiency — Today vs Month (%)
@@ -459,7 +518,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
               </div>
 
               <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200">
-                {lineSummaries.slice(0, 5).map(line => {
+                {lineSummaries.map(line => {
                   const todayEff = line.efficiencyPct ?? 0;
                   const monthEff = line.monthlyEfficiencyPct;
                   const todayH = Math.round((todayEff / 100) * 120);
@@ -509,7 +568,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
               </div>
 
               <div className="h-44 flex items-end justify-around gap-2 pt-6 pb-2 border-b border-slate-200">
-                {lineSummaries.slice(0, 5).map(line => {
+                {lineSummaries.map(line => {
                   const todayOql = line.todayOqlPct ?? 0;
                   const monthOql = line.monthlyOqlPct;
                   const maxOql = 8;
