@@ -245,7 +245,9 @@ class NflRepository(private val context: Context) {
   val auditLogs: StateFlow<List<AuditLogEntry>> = _auditLogs.asStateFlow()
 
   init {
-    loadSeedDemoData()
+    if (!prefs.getBoolean("sample_data_cleared", false)) {
+      loadSeedDemoData()
+    }
   }
 
   fun setFloor(floor: FloorScope) {
@@ -306,6 +308,7 @@ class NflRepository(private val context: Context) {
 
   // Idempotent demo data seeder
   fun loadSeedDemoData() {
+    if (prefs.getBoolean("sample_data_cleared", false)) return
     val date = "2026-10-09"
     val demoTargets = mutableListOf<SupervisorLineSetup>()
     val demoProds = mutableListOf<ProductionRecord>()
@@ -505,7 +508,8 @@ class NflRepository(private val context: Context) {
     _productionEntries.value = _productionEntries.value.filter { !it.isDemo } + demoProds
     _qualityEntries.value = _qualityEntries.value.filter { !it.isDemo } + demoQas
     _incidents.value = _incidents.value.filter { !it.isDemo } + demoIncidents
-    _isDemoMode.value = true
+    // Sample records are tagged individually for safe removal; the dashboard does not switch modes.
+    _isDemoMode.value = false
   }
 
   fun updateLineMorningTarget(
@@ -535,12 +539,14 @@ class NflRepository(private val context: Context) {
   }
 
   fun removeAllDemoData() {
+    // Only records explicitly tagged as sample data are removed. Real submissions are preserved.
     _targets.value = _targets.value.filter { !it.isDemo }
     _productionEntries.value = _productionEntries.value.filter { !it.isDemo }
     _qualityEntries.value = _qualityEntries.value.filter { !it.isDemo }
     _incidents.value = _incidents.value.filter { !it.isDemo }
+    prefs.edit().putBoolean("sample_data_cleared", true).apply()
     _isDemoMode.value = false
-    addAuditLog("DEMO", "ALL", "PURGE_DEMO", "Admin", "Removed all demo records while preserving real logs")
+    addAuditLog("DATA_ADMIN", "ALL", "CLEAR_SAMPLE_DATA", _currentUser.value?.name ?: "Admin", "Removed sample records; preserved non-sample records")
   }
 
   // Submissions
