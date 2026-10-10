@@ -1,0 +1,549 @@
+package com.example
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.NflRepository
+import com.example.model.UserRole
+import com.example.ui.screens.*
+import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.NflRoyalBlue
+import kotlinx.coroutines.launch
+
+enum class AppScreen {
+  LOGIN,
+  HOME,
+  PRODUCTION_ENTRY,
+  QUALITY_ENTRY,
+  NPT_SUPERVISOR,
+  SUPERVISOR_SETUP,
+  MONTHLY_SETUP,
+  ADMIN_USERS,
+  LINE_DEEP_DIVE,
+  TV_DASHBOARD,
+  HISTORY_SYNC,
+  SETTINGS
+}
+
+class MainActivity : ComponentActivity() {
+
+  private lateinit var repository: NflRepository
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    enableEdgeToEdge()
+    repository = NflRepository(applicationContext)
+
+    setContent {
+      MyApplicationTheme {
+        val currentUser by repository.currentUser.collectAsState()
+        val currentRole by repository.currentRole.collectAsState()
+        val currentUserName by repository.currentUserName.collectAsState()
+
+        var currentScreen by remember { mutableStateOf(if (currentUser == null) AppScreen.LOGIN else AppScreen.HOME) }
+        var selectedDeepDiveLineId by remember { mutableStateOf("K1") }
+
+        val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+        val scope = rememberCoroutineScope()
+
+        // Handle Back Navigation cleanly
+        if (currentScreen != AppScreen.HOME && currentScreen != AppScreen.LOGIN) {
+          BackHandler {
+            if (drawerState.isOpen) {
+              scope.launch { drawerState.close() }
+            } else {
+              currentScreen = AppScreen.HOME
+            }
+          }
+        }
+
+        // If user logged out or is null, gate into LoginScreen
+        if (currentUser == null || currentScreen == AppScreen.LOGIN) {
+          LoginScreen(
+            repository = repository,
+            onLoginSuccess = {
+              currentScreen = AppScreen.HOME
+            }
+          )
+        } else {
+          // Wrap main app inside smooth ModalNavigationDrawer
+          ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = currentScreen != AppScreen.TV_DASHBOARD,
+            drawerContent = {
+              ModalDrawerSheet(
+                drawerContainerColor = Color(0xFF0F172A),
+                drawerContentColor = Color.White,
+                modifier = Modifier.width(300.dp)
+              ) {
+                Column(
+                  modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                ) {
+                  // 1. Drawer Header with NOS Live Branding & Current User
+                  Surface(
+                    color = Color(0xFF1E293B),
+                    modifier = Modifier.fillMaxWidth()
+                  ) {
+                    Column(
+                      modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(16.dp)
+                    ) {
+                      Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                      ) {
+                        Surface(
+                          color = Color.White,
+                          shape = RoundedCornerShape(6.dp),
+                          modifier = Modifier.size(36.dp)
+                        ) {
+                          Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                              painter = painterResource(R.drawable.ic_nos_logo),
+                              contentDescription = "NOS Live Logo",
+                              modifier = Modifier.size(24.dp),
+                              tint = Color.Unspecified
+                            )
+                          }
+                        }
+                        Column {
+                          Text(
+                            text = "NOS Live",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Black
+                          )
+                          Text(
+                            text = "Northern Operating System Live",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 10.sp
+                          )
+                        }
+                      }
+
+                      Spacer(modifier = Modifier.height(14.dp))
+
+                      // User Info Badge
+                      Surface(
+                        color = Color(0xFF0F172A),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                      ) {
+                        Row(
+                          modifier = Modifier.padding(10.dp),
+                          verticalAlignment = Alignment.CenterVertically,
+                          horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                          Box(
+                            modifier = Modifier
+                              .size(10.dp)
+                              .clip(CircleShape)
+                              .background(Color(0xFF10B981))
+                          )
+                          Column {
+                            Text(
+                              text = currentUserName,
+                              color = Color.White,
+                              fontWeight = FontWeight.Bold,
+                              fontSize = 12.sp
+                            )
+                            Text(
+                              text = "Role: ${currentRole.displayName}",
+                              color = Color(0xFF38BDF8),
+                              fontSize = 10.sp
+                            )
+                          }
+                        }
+                      }
+                    }
+                  }
+
+                  Spacer(modifier = Modifier.height(10.dp))
+
+                  // 2. Navigation Items
+                  Text(
+                    text = "FACTORY MODULES",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("🏠 Home (Live Matrix & Gauges)") },
+                    selected = currentScreen == AppScreen.HOME,
+                    onClick = {
+                      currentScreen = AppScreen.HOME
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("🌅 Morning Line Setup") },
+                    selected = currentScreen == AppScreen.SUPERVISOR_SETUP,
+                    onClick = {
+                      currentScreen = AppScreen.SUPERVISOR_SETUP
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("📊 Line Deep Dive Performance") },
+                    selected = currentScreen == AppScreen.LINE_DEEP_DIVE,
+                    onClick = {
+                      currentScreen = AppScreen.LINE_DEEP_DIVE
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("⚙️ NPT & Maintenance Tracking") },
+                    selected = currentScreen == AppScreen.NPT_SUPERVISOR,
+                    onClick = {
+                      currentScreen = AppScreen.NPT_SUPERVISOR
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("🧵 Production Data Entry") },
+                    selected = currentScreen == AppScreen.PRODUCTION_ENTRY,
+                    onClick = {
+                      currentScreen = AppScreen.PRODUCTION_ENTRY
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("🔍 Quality / Defect Entry") },
+                    selected = currentScreen == AppScreen.QUALITY_ENTRY,
+                    onClick = {
+                      currentScreen = AppScreen.QUALITY_ENTRY
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("📅 Monthly Target Setup") },
+                    selected = currentScreen == AppScreen.MONTHLY_SETUP,
+                    onClick = {
+                      currentScreen = AppScreen.MONTHLY_SETUP
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  // Admin section
+                  Text(
+                    text = "MANAGEMENT & SECURITY",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("👥 User & Access Control") },
+                    selected = currentScreen == AppScreen.ADMIN_USERS,
+                    onClick = {
+                      currentScreen = AppScreen.ADMIN_USERS
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("📺 Smart TV Dashboard (16:9)") },
+                    selected = currentScreen == AppScreen.TV_DASHBOARD,
+                    onClick = {
+                      currentScreen = AppScreen.TV_DASHBOARD
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  NavigationDrawerItem(
+                    label = { Text("📜 History & Audit Logs") },
+                    selected = currentScreen == AppScreen.HISTORY_SYNC,
+                    onClick = {
+                      currentScreen = AppScreen.HISTORY_SYNC
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent,
+                      selectedContainerColor = Color(0xFF1E293B),
+                      selectedTextColor = Color(0xFF38BDF8),
+                      unselectedTextColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                  )
+
+                  Spacer(modifier = Modifier.weight(1f))
+                  Divider(color = Color(0xFF334155))
+
+                  // Logout Action
+                  NavigationDrawerItem(
+                    label = { Text("🚪 Logout (${currentUserName.take(15)})", color = Color(0xFFF87171), fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                      repository.logout()
+                      currentScreen = AppScreen.LOGIN
+                      scope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                      unselectedContainerColor = Color.Transparent
+                    ),
+                    modifier = Modifier.padding(10.dp)
+                  )
+                }
+              }
+            }
+          ) {
+            Scaffold(
+              modifier = Modifier.fillMaxSize(),
+              bottomBar = {
+                // Do not show bottom nav on TV dashboard so it displays truly fullscreen 16:9
+                if (currentScreen != AppScreen.TV_DASHBOARD) {
+                  NavigationBar(
+                    containerColor = Color.White,
+                    tonalElevation = 8.dp
+                  ) {
+                    NavigationBarItem(
+                      selected = currentScreen == AppScreen.HOME,
+                      onClick = { currentScreen = AppScreen.HOME },
+                      icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                      label = { Text("Home", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                      colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = NflRoyalBlue,
+                        selectedTextColor = NflRoyalBlue,
+                        indicatorColor = Color(0xFFE3F2FD)
+                      ),
+                      modifier = Modifier.testTag("nav_home")
+                    )
+
+                    NavigationBarItem(
+                      selected = currentScreen == AppScreen.SUPERVISOR_SETUP,
+                      onClick = { currentScreen = AppScreen.SUPERVISOR_SETUP },
+                      icon = { Icon(Icons.Default.WbSunny, contentDescription = "Morning Setup") },
+                      label = { Text("Setup", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                      colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = NflRoyalBlue,
+                        selectedTextColor = NflRoyalBlue,
+                        indicatorColor = Color(0xFFE3F2FD)
+                      ),
+                      modifier = Modifier.testTag("nav_setup")
+                    )
+
+                    NavigationBarItem(
+                      selected = currentScreen == AppScreen.LINE_DEEP_DIVE,
+                      onClick = { currentScreen = AppScreen.LINE_DEEP_DIVE },
+                      icon = { Icon(Icons.Default.BarChart, contentDescription = "Deep Dive") },
+                      label = { Text("Deep Dive", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                      colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = NflRoyalBlue,
+                        selectedTextColor = NflRoyalBlue,
+                        indicatorColor = Color(0xFFE3F2FD)
+                      ),
+                      modifier = Modifier.testTag("nav_deep_dive")
+                    )
+
+                    NavigationBarItem(
+                      selected = currentScreen == AppScreen.NPT_SUPERVISOR,
+                      onClick = { currentScreen = AppScreen.NPT_SUPERVISOR },
+                      icon = { Icon(Icons.Default.Build, contentDescription = "NPT") },
+                      label = { Text("NPT", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                      colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = NflRoyalBlue,
+                        selectedTextColor = NflRoyalBlue,
+                        indicatorColor = Color(0xFFE3F2FD)
+                      ),
+                      modifier = Modifier.testTag("nav_npt")
+                    )
+
+                    NavigationBarItem(
+                      selected = currentScreen == AppScreen.PRODUCTION_ENTRY || currentScreen == AppScreen.QUALITY_ENTRY,
+                      onClick = {
+                        currentScreen = when (currentRole) {
+                          UserRole.QUALITY_REPORTER, UserRole.QUALITY_MANAGER, UserRole.AUDITOR -> AppScreen.QUALITY_ENTRY
+                          else -> AppScreen.PRODUCTION_ENTRY
+                        }
+                      },
+                      icon = { Icon(Icons.Default.EditNote, contentDescription = "Entry") },
+                      label = { Text("Entry", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                      colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = NflRoyalBlue,
+                        selectedTextColor = NflRoyalBlue,
+                        indicatorColor = Color(0xFFE3F2FD)
+                      ),
+                      modifier = Modifier.testTag("nav_entry")
+                    )
+                  }
+                }
+              }
+            ) { innerPadding ->
+              Surface(
+                modifier = Modifier
+                  .fillMaxSize()
+                  .padding(if (currentScreen == AppScreen.TV_DASHBOARD) PaddingValues(0.dp) else innerPadding)
+              ) {
+                when (currentScreen) {
+                  AppScreen.LOGIN -> LoginScreen(
+                    repository = repository,
+                    onLoginSuccess = { currentScreen = AppScreen.HOME }
+                  )
+                  AppScreen.HOME -> HomeScreen(
+                    repository = repository,
+                    onNavigateToProduction = { currentScreen = AppScreen.PRODUCTION_ENTRY },
+                    onNavigateToQuality = { currentScreen = AppScreen.QUALITY_ENTRY },
+                    onNavigateToNpt = { currentScreen = AppScreen.NPT_SUPERVISOR },
+                    onNavigateToSetup = { currentScreen = AppScreen.SUPERVISOR_SETUP },
+                    onNavigateToTv = { currentScreen = AppScreen.TV_DASHBOARD },
+                    onNavigateToHistory = { currentScreen = AppScreen.HISTORY_SYNC },
+                    onNavigateToSettings = { currentScreen = AppScreen.SETTINGS },
+                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                    onNavigateToLineDeepDive = { lineId ->
+                      selectedDeepDiveLineId = lineId
+                      currentScreen = AppScreen.LINE_DEEP_DIVE
+                    },
+                    onNavigateToMonthlySetup = { currentScreen = AppScreen.MONTHLY_SETUP },
+                    onNavigateToAdminUsers = { currentScreen = AppScreen.ADMIN_USERS }
+                  )
+                  AppScreen.LINE_DEEP_DIVE -> LineDeepDiveScreen(
+                    repository = repository,
+                    lineId = selectedDeepDiveLineId,
+                    onNavigateBack = { currentScreen = AppScreen.HOME }
+                  )
+                  AppScreen.SUPERVISOR_SETUP -> SupervisorSetupScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME }
+                  )
+                  AppScreen.MONTHLY_SETUP -> MonthlySetupScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME }
+                  )
+                  AppScreen.ADMIN_USERS -> AdminUsersScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME }
+                  )
+                  AppScreen.PRODUCTION_ENTRY -> ProductionEntryScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME },
+                    onViewHistory = { currentScreen = AppScreen.HISTORY_SYNC }
+                  )
+                  AppScreen.QUALITY_ENTRY -> QualityEntryScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME },
+                    onViewHistory = { currentScreen = AppScreen.HISTORY_SYNC }
+                  )
+                  AppScreen.NPT_SUPERVISOR -> NptSupervisorScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME }
+                  )
+                  AppScreen.TV_DASHBOARD -> TvDashboardScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME }
+                  )
+                  AppScreen.HISTORY_SYNC -> HistorySyncScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME }
+                  )
+                  AppScreen.SETTINGS -> SettingsScreen(
+                    repository = repository,
+                    onNavigateBack = { currentScreen = AppScreen.HOME }
+                  )
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
