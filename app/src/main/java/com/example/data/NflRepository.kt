@@ -2,6 +2,8 @@ package com.example.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import org.json.JSONArray
+import org.json.JSONObject
 import com.example.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -572,6 +574,7 @@ class NflRepository(private val context: Context) {
   val auditLogs: StateFlow<List<AuditLogEntry>> = _auditLogs.asStateFlow()
 
   init {
+    restoreUsers()
     loadSeedDemoData(force = true)
   }
 
@@ -1082,10 +1085,101 @@ class NflRepository(private val context: Context) {
     return admin
   }
 
+  // Persist user accounts and per-user access overrides across app restarts.
+  // This is device-local persistence; it is not a substitute for server-side authorization.
+  private fun persistUsers() {
+    val array = JSONArray()
+    _users.value.forEach { user ->
+      val item = JSONObject()
+      item.put("id", user.id)
+      item.put("name", user.name)
+      item.put("password", user.password)
+      item.put("role", user.role.name)
+      item.put("floor", user.floor.name)
+      item.put("assignedLine", user.assignedLine)
+      item.put("isAdmin", user.isAdmin)
+      listOf(
+        "canViewDashboard" to user.canViewDashboard,
+        "canViewTvDashboard" to user.canViewTvDashboard,
+        "canViewMonthlyEfficiency" to user.canViewMonthlyEfficiency,
+        "canViewMonthlyDhu" to user.canViewMonthlyDhu,
+        "canViewMonthlyOql" to user.canViewMonthlyOql,
+        "canViewLineDeepDive" to user.canViewLineDeepDive,
+        "canViewAuditLogs" to user.canViewAuditLogs,
+        "canExportReports" to user.canExportReports,
+        "canProductionWrite" to user.canProductionWrite,
+        "canFinishingWrite" to user.canFinishingWrite,
+        "canQualityWrite" to user.canQualityWrite,
+        "canOqlWrite" to user.canOqlWrite,
+        "canNptWrite" to user.canNptWrite,
+        "canMorningTargetWrite" to user.canMorningTargetWrite,
+        "canMonthlyTargetWrite" to user.canMonthlyTargetWrite,
+        "canTargetRevisionWrite" to user.canTargetRevisionWrite,
+        "canProductionRead" to user.canProductionRead,
+        "canQualityRead" to user.canQualityRead,
+        "canNptRead" to user.canNptRead,
+        "canMorningTargetRead" to user.canMorningTargetRead,
+        "canMonthlyTargetRead" to user.canMonthlyTargetRead
+      ).forEach { (key, value) -> item.put(key, value) }
+      array.put(item)
+    }
+    prefs.edit().putString("rbac_users_v1", array.toString()).apply()
+  }
+
+  private fun restoreUsers() {
+    val saved = prefs.getString("rbac_users_v1", null) ?: return
+    try {
+      val array = JSONArray(saved)
+      if (array.length() == 0) return
+      val restored = mutableListOf<UserAccount>()
+      for (index in 0 until array.length()) {
+        val item = array.getJSONObject(index)
+        val roleName = item.optString("role", UserRole.SUPERVISOR.name)
+        val floorName = item.optString("floor", FloorScope.SEW_2.name)
+        val role = runCatching { UserRole.valueOf(roleName) }.getOrDefault(UserRole.SUPERVISOR)
+        val floor = runCatching { FloorScope.valueOf(floorName) }.getOrDefault(FloorScope.SEW_2)
+        restored += UserAccount(
+          id = item.optString("id"),
+          name = item.optString("name"),
+          password = item.optString("password", "123"),
+          role = role,
+          floor = floor,
+          assignedLine = item.optString("assignedLine", "K1"),
+          isAdmin = item.optBoolean("isAdmin", role == UserRole.ADMIN),
+          canViewDashboard = item.optBoolean("canViewDashboard", true),
+          canViewTvDashboard = item.optBoolean("canViewTvDashboard", true),
+          canViewMonthlyEfficiency = item.optBoolean("canViewMonthlyEfficiency", true),
+          canViewMonthlyDhu = item.optBoolean("canViewMonthlyDhu", true),
+          canViewMonthlyOql = item.optBoolean("canViewMonthlyOql", true),
+          canViewLineDeepDive = item.optBoolean("canViewLineDeepDive", true),
+          canViewAuditLogs = item.optBoolean("canViewAuditLogs", false),
+          canExportReports = item.optBoolean("canExportReports", false),
+          canProductionWrite = item.optBoolean("canProductionWrite", false),
+          canFinishingWrite = item.optBoolean("canFinishingWrite", false),
+          canQualityWrite = item.optBoolean("canQualityWrite", false),
+          canOqlWrite = item.optBoolean("canOqlWrite", false),
+          canNptWrite = item.optBoolean("canNptWrite", false),
+          canMorningTargetWrite = item.optBoolean("canMorningTargetWrite", false),
+          canMonthlyTargetWrite = item.optBoolean("canMonthlyTargetWrite", false),
+          canTargetRevisionWrite = item.optBoolean("canTargetRevisionWrite", false),
+          canProductionRead = item.optBoolean("canProductionRead", true),
+          canQualityRead = item.optBoolean("canQualityRead", true),
+          canNptRead = item.optBoolean("canNptRead", true),
+          canMorningTargetRead = item.optBoolean("canMorningTargetRead", true),
+          canMonthlyTargetRead = item.optBoolean("canMonthlyTargetRead", true)
+        )
+      }
+      if (restored.any { it.id == "admin" && it.isAdmin }) _users.value = restored
+    } catch (_: Exception) {
+      // Keep safe in-code defaults if stored data is malformed.
+    }
+  }
+
   fun saveUser(user: UserAccount) {
     if (!isAdminUser()) { logPermissionDenied("USER_ACCOUNTS", "WRITE"); return }
     val filtered = _users.value.filter { it.id != user.id }
     _users.value = filtered + user
+    persistUsers()
     if (_currentUser.value?.id == user.id) {
       _currentUser.value = user
     }
@@ -1170,6 +1264,7 @@ class NflRepository(private val context: Context) {
         updated
       } else u
     }
+    persistUsers()
     addAuditLog("RBAC_POLICY", "MANAGEMENT", "STRICT_VIEW_ONLY", "Admin", "Enforced view-only mode on all Management accounts")
   }
 
@@ -1177,6 +1272,7 @@ class NflRepository(private val context: Context) {
     if (!isAdminUser()) { logPermissionDenied("USER_ACCOUNTS", "DELETE"); return }
     if (_currentUser.value?.id == userId) return
     _users.value = _users.value.filter { it.id != userId }
+    persistUsers()
     addAuditLog("USER_MGMT", userId, "DELETE_USER", "Admin", "Removed account")
   }
 
