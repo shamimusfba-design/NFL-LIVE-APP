@@ -167,7 +167,7 @@ export const TvDesktopDashboard: React.FC<TvDesktopDashboardProps> = ({
         <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-center text-xs font-extrabold text-slate-800">
             <span>Today Eff</span>
-            <span className={}>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${kpis.todayEfficiencyPct >= 75 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
               {kpis.todayEfficiencyPct >= 75 ? 'ON TARGET' : 'UNDER'}
             </span>
           </div>
@@ -176,7 +176,7 @@ export const TvDesktopDashboard: React.FC<TvDesktopDashboardProps> = ({
             <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-2">
               <div
                 className="bg-blue-600 h-full rounded-full"
-                style={{ width:  }}
+                style={{ width: `${Math.max(0, Math.min(100, kpis.todayEfficiencyPct))}%` }}
               ></div>
             </div>
           </div>
@@ -199,7 +199,7 @@ export const TvDesktopDashboard: React.FC<TvDesktopDashboardProps> = ({
             <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-2">
               <div
                 className="bg-sky-500 h-full rounded-full"
-                style={{ width:  }}
+                style={{ width: `${Math.max(0, Math.min(100, kpis.monthlyEfficiencyPct))}%` }}
               ></div>
             </div>
           </div>
@@ -244,8 +244,8 @@ export const TvDesktopDashboard: React.FC<TvDesktopDashboardProps> = ({
             ].map(f => (
               <div key={f.floor} className="flex flex-col items-center gap-0.5">
                 <div className="flex items-end gap-0.5 h-12">
-                  <div className="w-2 bg-blue-500 rounded-t" style={{ height:  }}></div>
-                  <div className="w-2 bg-emerald-600 rounded-t" style={{ height:  }}></div>
+                  <div className="w-2 bg-blue-500 rounded-t" style={{ height: `${f.today}%` }}></div>
+                  <div className="w-2 bg-emerald-600 rounded-t" style={{ height: `${f.month}%` }}></div>
                 </div>
                 <span className="text-[8px] font-bold text-slate-600">{f.floor}</span>
               </div>
@@ -271,7 +271,7 @@ export const TvDesktopDashboard: React.FC<TvDesktopDashboardProps> = ({
         <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-center text-xs font-extrabold text-slate-800">
             <span>Today OQL</span>
-            <span className={}>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${kpis.todayOqlPct <= 5 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
               {kpis.todayOqlPct <= 5 ? 'PASS' : 'ALERT'}
             </span>
           </div>
@@ -281,7 +281,7 @@ export const TvDesktopDashboard: React.FC<TvDesktopDashboardProps> = ({
               <div
                 className="h-full rounded-full"
                 style={{
-                  width: ,
+                  width: `${Math.max(0, Math.min(100, kpis.todayOqlPct))}%,
                   backgroundColor: kpis.todayOqlPct <= 2.0 ? '#10B981' : kpis.todayOqlPct <= 5.0 ? '#F59E0B' : '#EF4444'
                 }}
               ></div>
