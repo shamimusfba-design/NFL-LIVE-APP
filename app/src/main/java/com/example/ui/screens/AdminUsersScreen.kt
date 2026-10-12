@@ -679,7 +679,7 @@ fun AdminUsersScreen(
                     verticalAlignment = Alignment.CenterVertically
                   ) {
                     Column(Modifier.weight(1f)) {
-                      Text(user.name, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
+                      Text(if (user.role == UserRole.ADMIN) user.name else user.id, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
                       Text("ID: ${user.id}", fontSize = 11.sp, color = Color(0xFF64748B))
                     }
                     Surface(
