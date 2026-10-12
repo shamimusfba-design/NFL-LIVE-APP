@@ -947,14 +947,37 @@ class NflRepository(private val context: Context) {
     addAuditLog("DATA_ADMIN", "ALL", "CLEAR_SAMPLE_DATA", _currentUser.value?.name ?: "Admin", "Removed sample records; preserved non-sample records")
   }
 
+  // Central permission checks. UI navigation is not a security boundary:
+  // every repository write also validates the active account.
+  fun canWriteProduction(): Boolean = _currentUser.value?.let { it.isAdmin || it.canProductionWrite } == true
+  fun canWriteQuality(): Boolean = _currentUser.value?.let { it.isAdmin || it.canQualityWrite } == true
+  fun canWriteOql(): Boolean = _currentUser.value?.let { it.isAdmin || it.canOqlWrite } == true
+  fun canWriteNpt(): Boolean = _currentUser.value?.let { it.isAdmin || it.canNptWrite } == true
+  fun canWriteMorningTarget(): Boolean = _currentUser.value?.let { it.isAdmin || it.canMorningTargetWrite || it.canTargetRevisionWrite } == true
+  fun canWriteMonthlyTarget(): Boolean = _currentUser.value?.let { it.isAdmin || it.canMonthlyTargetWrite } == true
+  fun isAdminUser(): Boolean = _currentUser.value?.isAdmin == true
+
+  private fun logPermissionDenied(module: String, action: String) {
+    val user = _currentUser.value
+    addAuditLog(
+      "ACCESS_CONTROL",
+      module,
+      "DENY_$action",
+      user?.name ?: "Unauthenticated",
+      "Permission denied for " + (user?.role?.displayName ?: "no active user")
+    )
+  }
+
   // Submissions
   fun submitProduction(entry: ProductionRecord): ProductionRecord {
+    if (!canWriteProduction()) { logPermissionDenied("PRODUCTION", "WRITE"); return entry }
     _productionEntries.value = listOf(entry) + _productionEntries.value
     addAuditLog("PRODUCTION", entry.lineId, "ADD_OUTPUT", entry.modifiedBy, "Qty: ${entry.outputQty}")
     return entry
   }
 
   fun submitBatchProduction(entries: List<ProductionRecord>) {
+    if (!canWriteProduction()) { logPermissionDenied("PRODUCTION_BATCH", "WRITE"); return }
     _productionEntries.value = entries + _productionEntries.value
     entries.forEach { entry ->
       addAuditLog("PRODUCTION", entry.lineId, "ADD_OUTPUT_BATCH", entry.modifiedBy, "Hour: ${entry.hourSlot}, Qty: ${entry.outputQty}")
@@ -962,12 +985,14 @@ class NflRepository(private val context: Context) {
   }
 
   fun submitQuality(entry: QualityRecord): QualityRecord {
+    if (!canWriteQuality()) { logPermissionDenied("QUALITY", "WRITE"); return entry }
     _qualityEntries.value = listOf(entry) + _qualityEntries.value
     addAuditLog("QUALITY", entry.lineId, "ADD_INSPECTION", entry.modifiedBy, "Checked: ${entry.checkedGarments}, Defective: ${entry.defectiveGarments}")
     return entry
   }
 
   fun saveLineSetup(setup: SupervisorLineSetup) {
+    if (!canWriteMorningTarget()) { logPermissionDenied("MORNING_TARGET", "WRITE"); return }
     val filtered = _targets.value.filter { !(it.lineId == setup.lineId && it.date == setup.date) }
     _targets.value = listOf(setup) + filtered
     addAuditLog("SETUP", setup.lineId, "SAVE_TARGET", "Supervisor", "Daily target: ${setup.targetDailyPcs}, Eff: ${setup.targetEfficiencyPct}%")
@@ -1045,6 +1070,7 @@ class NflRepository(private val context: Context) {
   }
 
   fun saveUser(user: UserAccount) {
+    if (!isAdminUser()) { logPermissionDenied("USER_ACCOUNTS", "WRITE"); return }
     val filtered = _users.value.filter { it.id != user.id }
     _users.value = filtered + user
     if (_currentUser.value?.id == user.id) {
@@ -1072,6 +1098,7 @@ class NflRepository(private val context: Context) {
     canMonthlyTargetWrite: Boolean,
     canTargetRevisionWrite: Boolean
   ) {
+    if (!isAdminUser()) { logPermissionDenied("ROLE_POLICY", "WRITE"); return }
     _users.value = _users.value.map { u ->
       if (u.role == role && !u.isAdmin) {
         val updated = u.copy(
@@ -1102,6 +1129,7 @@ class NflRepository(private val context: Context) {
   }
 
   fun applyManagementStrictPolicy() {
+    if (!isAdminUser()) { logPermissionDenied("MANAGEMENT_POLICY", "WRITE"); return }
     val managementRoles = setOf(UserRole.MANAGEMENT_VIEW, UserRole.PRODUCTION_MANAGER, UserRole.QUALITY_MANAGER)
     _users.value = _users.value.map { u ->
       if (u.role in managementRoles && !u.isAdmin) {
@@ -1133,6 +1161,8 @@ class NflRepository(private val context: Context) {
   }
 
   fun deleteUser(userId: String) {
+    if (!isAdminUser()) { logPermissionDenied("USER_ACCOUNTS", "DELETE"); return }
+    if (_currentUser.value?.id == userId) return
     _users.value = _users.value.filter { it.id != userId }
     addAuditLog("USER_MGMT", userId, "DELETE_USER", "Admin", "Removed account")
   }
@@ -1144,6 +1174,7 @@ class NflRepository(private val context: Context) {
   }
 
   fun saveMonthlyTarget(target: MonthlyFactoryTarget) {
+    if (!canWriteMonthlyTarget()) { logPermissionDenied("MONTHLY_TARGET", "WRITE"); return }
     val filtered = _monthlyTargets.value.filter { !it.floor.equals(target.floor, ignoreCase = true) }
     _monthlyTargets.value = filtered + target
     addAuditLog("MONTHLY_SETUP", target.floor, "SAVE_MONTHLY_TARGET", target.lastUpdatedBy, "Target Eff: ${target.targetEfficiencyPct}%, OQL: ${target.targetOqlPct}%")
@@ -1151,12 +1182,14 @@ class NflRepository(private val context: Context) {
 
   // Incident Actions
   fun reportIncident(item: IncidentItem): IncidentItem {
+    if (!canWriteNpt()) { logPermissionDenied("NPT_INCIDENT", "WRITE"); return item }
     _incidents.value = listOf(item) + _incidents.value
     addAuditLog("INCIDENT", item.lineId, "REPORT_INCIDENT", item.reportedBy, item.description)
     return item
   }
 
   fun startMechanicMaintenance(id: String, mechanicName: String) {
+    if (!canWriteNpt()) { logPermissionDenied("NPT_MAINTENANCE", "START"); return }
     _incidents.value = _incidents.value.map {
       if (it.id == id) it.copy(
         status = IncidentStatus.ACKNOWLEDGED,
@@ -1177,6 +1210,7 @@ class NflRepository(private val context: Context) {
   }
 
   fun acknowledgeIncident(id: String, ackBy: String) {
+    if (!canWriteNpt()) { logPermissionDenied("NPT_INCIDENT", "ACKNOWLEDGE"); return }
     _incidents.value = _incidents.value.map {
       if (it.id == id) it.copy(
         status = IncidentStatus.ACKNOWLEDGED,
@@ -1188,6 +1222,7 @@ class NflRepository(private val context: Context) {
   }
 
   fun resolveIncident(id: String, resolvedBy: String, note: String) {
+    if (!canWriteNpt()) { logPermissionDenied("NPT_INCIDENT", "RESOLVE"); return }
     _incidents.value = _incidents.value.map {
       if (it.id == id) it.copy(
         status = IncidentStatus.RESOLVED,
