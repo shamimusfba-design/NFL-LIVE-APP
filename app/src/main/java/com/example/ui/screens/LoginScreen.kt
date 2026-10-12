@@ -247,7 +247,7 @@ fun LoginScreen(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                  Text(user.name, color = LoginText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                  Text(if (user.role == UserRole.ADMIN) user.name else user.id, color = LoginText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                   Text(user.role.displayName, color = LoginMuted, fontSize = 11.sp)
                 }
                 Icon(Icons.Default.ChevronRight, contentDescription = "Select account", tint = LoginMuted)
