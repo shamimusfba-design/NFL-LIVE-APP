@@ -2,6 +2,8 @@ package com.example.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import org.json.JSONArray
+import org.json.JSONObject
 import com.example.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -572,6 +574,7 @@ class NflRepository(private val context: Context) {
   val auditLogs: StateFlow<List<AuditLogEntry>> = _auditLogs.asStateFlow()
 
   init {
+    restoreUsers()
     loadSeedDemoData(force = true)
   }
 
@@ -659,12 +662,21 @@ class NflRepository(private val context: Context) {
   }
 
   fun retryPendingSubmissions() {
+    if (_currentUser.value?.let { it.isAdmin || it.canProductionWrite || it.canQualityWrite } != true) {
+      logPermissionDenied("PENDING_SUBMISSIONS", "RETRY")
+      return
+    }
     _productionEntries.value = _productionEntries.value.map { it.copy(syncStatus = SyncStatus.SYNCED) }
     _qualityEntries.value = _qualityEntries.value.map { it.copy(syncStatus = SyncStatus.SYNCED) }
   }
 
   // Idempotent demo data seeder with full dynamic dates and hourly distributions
   fun loadSeedDemoData(force: Boolean = true) {
+    // Allow initial seed during repository construction, but restrict manual reseeding to Admin.
+    if (_currentUser.value != null && !isAdminUser()) {
+      logPermissionDenied("SAMPLE_DATA", "RESEED")
+      return
+    }
     if (!force && prefs.getBoolean("sample_data_cleared", false)) return
     prefs.edit().putBoolean("sample_data_cleared", false).apply()
 
@@ -937,6 +949,10 @@ class NflRepository(private val context: Context) {
   }
 
   fun removeAllDemoData() {
+    if (!isAdminUser()) {
+      logPermissionDenied("SAMPLE_DATA", "DELETE")
+      return
+    }
     // Only records explicitly tagged as sample data are removed. Real submissions are preserved.
     _targets.value = _targets.value.filter { !it.isDemo }
     _productionEntries.value = _productionEntries.value.filter { !it.isDemo }
@@ -947,14 +963,37 @@ class NflRepository(private val context: Context) {
     addAuditLog("DATA_ADMIN", "ALL", "CLEAR_SAMPLE_DATA", _currentUser.value?.name ?: "Admin", "Removed sample records; preserved non-sample records")
   }
 
+  // Central permission checks. UI navigation is not a security boundary:
+  // every repository write also validates the active account.
+  fun canWriteProduction(): Boolean = _currentUser.value?.let { it.isAdmin || it.canProductionWrite } == true
+  fun canWriteQuality(): Boolean = _currentUser.value?.let { it.isAdmin || it.canQualityWrite } == true
+  fun canWriteOql(): Boolean = _currentUser.value?.let { it.isAdmin || it.canOqlWrite } == true
+  fun canWriteNpt(): Boolean = _currentUser.value?.let { it.isAdmin || it.canNptWrite } == true
+  fun canWriteMorningTarget(): Boolean = _currentUser.value?.let { it.isAdmin || it.canMorningTargetWrite || it.canTargetRevisionWrite } == true
+  fun canWriteMonthlyTarget(): Boolean = _currentUser.value?.let { it.isAdmin || it.canMonthlyTargetWrite } == true
+  fun isAdminUser(): Boolean = _currentUser.value?.isAdmin == true
+
+  private fun logPermissionDenied(module: String, action: String) {
+    val user = _currentUser.value
+    addAuditLog(
+      "ACCESS_CONTROL",
+      module,
+      "DENY_$action",
+      user?.let { if (it.isAdmin) it.name else it.id } ?: "Unauthenticated",
+      "Permission denied for " + (user?.role?.displayName ?: "no active user")
+    )
+  }
+
   // Submissions
   fun submitProduction(entry: ProductionRecord): ProductionRecord {
+    if (!canWriteProduction()) { logPermissionDenied("PRODUCTION", "WRITE"); return entry }
     _productionEntries.value = listOf(entry) + _productionEntries.value
     addAuditLog("PRODUCTION", entry.lineId, "ADD_OUTPUT", entry.modifiedBy, "Qty: ${entry.outputQty}")
     return entry
   }
 
   fun submitBatchProduction(entries: List<ProductionRecord>) {
+    if (!canWriteProduction()) { logPermissionDenied("PRODUCTION_BATCH", "WRITE"); return }
     _productionEntries.value = entries + _productionEntries.value
     entries.forEach { entry ->
       addAuditLog("PRODUCTION", entry.lineId, "ADD_OUTPUT_BATCH", entry.modifiedBy, "Hour: ${entry.hourSlot}, Qty: ${entry.outputQty}")
@@ -962,12 +1001,14 @@ class NflRepository(private val context: Context) {
   }
 
   fun submitQuality(entry: QualityRecord): QualityRecord {
+    if (!canWriteQuality()) { logPermissionDenied("QUALITY", "WRITE"); return entry }
     _qualityEntries.value = listOf(entry) + _qualityEntries.value
     addAuditLog("QUALITY", entry.lineId, "ADD_INSPECTION", entry.modifiedBy, "Checked: ${entry.checkedGarments}, Defective: ${entry.defectiveGarments}")
     return entry
   }
 
   fun saveLineSetup(setup: SupervisorLineSetup) {
+    if (!canWriteMorningTarget()) { logPermissionDenied("MORNING_TARGET", "WRITE"); return }
     val filtered = _targets.value.filter { !(it.lineId == setup.lineId && it.date == setup.date) }
     _targets.value = listOf(setup) + filtered
     addAuditLog("SETUP", setup.lineId, "SAVE_TARGET", "Supervisor", "Daily target: ${setup.targetDailyPcs}, Eff: ${setup.targetEfficiencyPct}%")
@@ -998,10 +1039,10 @@ class NflRepository(private val context: Context) {
     if (user != null) {
       _currentUser.value = user
       _currentRole.value = user.role
-      _currentUserName.value = user.name
+      _currentUserName.value = if (user.isAdmin) user.name else user.id
       _currentFloor.value = user.floor
       _assignedLine.value = user.assignedLine
-      addAuditLog("AUTH", user.id, "LOGIN", user.name, "Role: ${user.role.displayName}")
+      addAuditLog("AUTH", user.id, "LOGIN", if (user.isAdmin) user.name else user.id, "Role: ${user.role.displayName}")
       return true
     }
     return false
@@ -1011,17 +1052,17 @@ class NflRepository(private val context: Context) {
     val user = _users.value.find { it.role == role } ?: return false
     _currentUser.value = user
     _currentRole.value = user.role
-    _currentUserName.value = user.name
+    _currentUserName.value = if (user.isAdmin) user.name else user.id
     _currentFloor.value = user.floor
     _assignedLine.value = user.assignedLine
-    addAuditLog("AUTH", user.id, "ROLE_SWITCH", user.name, "Switched to role: ${user.role.displayName}")
+    addAuditLog("AUTH", user.id, "ROLE_SWITCH", if (user.isAdmin) user.name else user.id, "Switched to role: ${user.role.displayName}")
     return true
   }
 
   fun logout() {
     val user = _currentUser.value
     if (user != null) {
-      addAuditLog("AUTH", user.id, "LOGOUT", user.name, "Session ended")
+      addAuditLog("AUTH", user.id, "LOGOUT", if (user.isAdmin) user.name else user.id, "Session ended")
     }
     _currentUser.value = null
   }
@@ -1044,9 +1085,101 @@ class NflRepository(private val context: Context) {
     return admin
   }
 
+  // Persist user accounts and per-user access overrides across app restarts.
+  // This is device-local persistence; it is not a substitute for server-side authorization.
+  private fun persistUsers() {
+    val array = JSONArray()
+    _users.value.forEach { user ->
+      val item = JSONObject()
+      item.put("id", user.id)
+      item.put("name", user.name)
+      item.put("password", user.password)
+      item.put("role", user.role.name)
+      item.put("floor", user.floor.name)
+      item.put("assignedLine", user.assignedLine)
+      item.put("isAdmin", user.isAdmin)
+      listOf(
+        "canViewDashboard" to user.canViewDashboard,
+        "canViewTvDashboard" to user.canViewTvDashboard,
+        "canViewMonthlyEfficiency" to user.canViewMonthlyEfficiency,
+        "canViewMonthlyDhu" to user.canViewMonthlyDhu,
+        "canViewMonthlyOql" to user.canViewMonthlyOql,
+        "canViewLineDeepDive" to user.canViewLineDeepDive,
+        "canViewAuditLogs" to user.canViewAuditLogs,
+        "canExportReports" to user.canExportReports,
+        "canProductionWrite" to user.canProductionWrite,
+        "canFinishingWrite" to user.canFinishingWrite,
+        "canQualityWrite" to user.canQualityWrite,
+        "canOqlWrite" to user.canOqlWrite,
+        "canNptWrite" to user.canNptWrite,
+        "canMorningTargetWrite" to user.canMorningTargetWrite,
+        "canMonthlyTargetWrite" to user.canMonthlyTargetWrite,
+        "canTargetRevisionWrite" to user.canTargetRevisionWrite,
+        "canProductionRead" to user.canProductionRead,
+        "canQualityRead" to user.canQualityRead,
+        "canNptRead" to user.canNptRead,
+        "canMorningTargetRead" to user.canMorningTargetRead,
+        "canMonthlyTargetRead" to user.canMonthlyTargetRead
+      ).forEach { (key, value) -> item.put(key, value) }
+      array.put(item)
+    }
+    prefs.edit().putString("rbac_users_v1", array.toString()).apply()
+  }
+
+  private fun restoreUsers() {
+    val saved = prefs.getString("rbac_users_v1", null) ?: return
+    try {
+      val array = JSONArray(saved)
+      if (array.length() == 0) return
+      val restored = mutableListOf<UserAccount>()
+      for (index in 0 until array.length()) {
+        val item = array.getJSONObject(index)
+        val roleName = item.optString("role", UserRole.SUPERVISOR.name)
+        val floorName = item.optString("floor", FloorScope.SEW_2.name)
+        val role = runCatching { UserRole.valueOf(roleName) }.getOrDefault(UserRole.SUPERVISOR)
+        val floor = runCatching { FloorScope.valueOf(floorName) }.getOrDefault(FloorScope.SEW_2)
+        restored += UserAccount(
+          id = item.optString("id"),
+          name = item.optString("name"),
+          password = item.optString("password", "123"),
+          role = role,
+          floor = floor,
+          assignedLine = item.optString("assignedLine", "K1"),
+          isAdmin = item.optBoolean("isAdmin", role == UserRole.ADMIN),
+          canViewDashboard = item.optBoolean("canViewDashboard", true),
+          canViewTvDashboard = item.optBoolean("canViewTvDashboard", true),
+          canViewMonthlyEfficiency = item.optBoolean("canViewMonthlyEfficiency", true),
+          canViewMonthlyDhu = item.optBoolean("canViewMonthlyDhu", true),
+          canViewMonthlyOql = item.optBoolean("canViewMonthlyOql", true),
+          canViewLineDeepDive = item.optBoolean("canViewLineDeepDive", true),
+          canViewAuditLogs = item.optBoolean("canViewAuditLogs", false),
+          canExportReports = item.optBoolean("canExportReports", false),
+          canProductionWrite = item.optBoolean("canProductionWrite", false),
+          canFinishingWrite = item.optBoolean("canFinishingWrite", false),
+          canQualityWrite = item.optBoolean("canQualityWrite", false),
+          canOqlWrite = item.optBoolean("canOqlWrite", false),
+          canNptWrite = item.optBoolean("canNptWrite", false),
+          canMorningTargetWrite = item.optBoolean("canMorningTargetWrite", false),
+          canMonthlyTargetWrite = item.optBoolean("canMonthlyTargetWrite", false),
+          canTargetRevisionWrite = item.optBoolean("canTargetRevisionWrite", false),
+          canProductionRead = item.optBoolean("canProductionRead", true),
+          canQualityRead = item.optBoolean("canQualityRead", true),
+          canNptRead = item.optBoolean("canNptRead", true),
+          canMorningTargetRead = item.optBoolean("canMorningTargetRead", true),
+          canMonthlyTargetRead = item.optBoolean("canMonthlyTargetRead", true)
+        )
+      }
+      if (restored.any { it.id == "admin" && it.isAdmin }) _users.value = restored
+    } catch (_: Exception) {
+      // Keep safe in-code defaults if stored data is malformed.
+    }
+  }
+
   fun saveUser(user: UserAccount) {
+    if (!isAdminUser()) { logPermissionDenied("USER_ACCOUNTS", "WRITE"); return }
     val filtered = _users.value.filter { it.id != user.id }
     _users.value = filtered + user
+    persistUsers()
     if (_currentUser.value?.id == user.id) {
       _currentUser.value = user
     }
@@ -1072,6 +1205,7 @@ class NflRepository(private val context: Context) {
     canMonthlyTargetWrite: Boolean,
     canTargetRevisionWrite: Boolean
   ) {
+    if (!isAdminUser()) { logPermissionDenied("ROLE_POLICY", "WRITE"); return }
     _users.value = _users.value.map { u ->
       if (u.role == role && !u.isAdmin) {
         val updated = u.copy(
@@ -1098,10 +1232,12 @@ class NflRepository(private val context: Context) {
         updated
       } else u
     }
+    persistUsers()
     addAuditLog("RBAC_POLICY", role.name, "UPDATE_ROLE_POLICY", "Admin", "Updated all permissions for role ${role.displayName}")
   }
 
   fun applyManagementStrictPolicy() {
+    if (!isAdminUser()) { logPermissionDenied("MANAGEMENT_POLICY", "WRITE"); return }
     val managementRoles = setOf(UserRole.MANAGEMENT_VIEW, UserRole.PRODUCTION_MANAGER, UserRole.QUALITY_MANAGER)
     _users.value = _users.value.map { u ->
       if (u.role in managementRoles && !u.isAdmin) {
@@ -1129,11 +1265,15 @@ class NflRepository(private val context: Context) {
         updated
       } else u
     }
+    persistUsers()
     addAuditLog("RBAC_POLICY", "MANAGEMENT", "STRICT_VIEW_ONLY", "Admin", "Enforced view-only mode on all Management accounts")
   }
 
   fun deleteUser(userId: String) {
+    if (!isAdminUser()) { logPermissionDenied("USER_ACCOUNTS", "DELETE"); return }
+    if (_currentUser.value?.id == userId) return
     _users.value = _users.value.filter { it.id != userId }
+    persistUsers()
     addAuditLog("USER_MGMT", userId, "DELETE_USER", "Admin", "Removed account")
   }
 
@@ -1144,6 +1284,7 @@ class NflRepository(private val context: Context) {
   }
 
   fun saveMonthlyTarget(target: MonthlyFactoryTarget) {
+    if (!canWriteMonthlyTarget()) { logPermissionDenied("MONTHLY_TARGET", "WRITE"); return }
     val filtered = _monthlyTargets.value.filter { !it.floor.equals(target.floor, ignoreCase = true) }
     _monthlyTargets.value = filtered + target
     addAuditLog("MONTHLY_SETUP", target.floor, "SAVE_MONTHLY_TARGET", target.lastUpdatedBy, "Target Eff: ${target.targetEfficiencyPct}%, OQL: ${target.targetOqlPct}%")
@@ -1151,12 +1292,14 @@ class NflRepository(private val context: Context) {
 
   // Incident Actions
   fun reportIncident(item: IncidentItem): IncidentItem {
+    if (!canWriteNpt()) { logPermissionDenied("NPT_INCIDENT", "WRITE"); return item }
     _incidents.value = listOf(item) + _incidents.value
     addAuditLog("INCIDENT", item.lineId, "REPORT_INCIDENT", item.reportedBy, item.description)
     return item
   }
 
   fun startMechanicMaintenance(id: String, mechanicName: String) {
+    if (!canWriteNpt()) { logPermissionDenied("NPT_MAINTENANCE", "START"); return }
     _incidents.value = _incidents.value.map {
       if (it.id == id) it.copy(
         status = IncidentStatus.ACKNOWLEDGED,
@@ -1177,6 +1320,7 @@ class NflRepository(private val context: Context) {
   }
 
   fun acknowledgeIncident(id: String, ackBy: String) {
+    if (!canWriteNpt()) { logPermissionDenied("NPT_INCIDENT", "ACKNOWLEDGE"); return }
     _incidents.value = _incidents.value.map {
       if (it.id == id) it.copy(
         status = IncidentStatus.ACKNOWLEDGED,
@@ -1188,6 +1332,7 @@ class NflRepository(private val context: Context) {
   }
 
   fun resolveIncident(id: String, resolvedBy: String, note: String) {
+    if (!canWriteNpt()) { logPermissionDenied("NPT_INCIDENT", "RESOLVE"); return }
     _incidents.value = _incidents.value.map {
       if (it.id == id) it.copy(
         status = IncidentStatus.RESOLVED,

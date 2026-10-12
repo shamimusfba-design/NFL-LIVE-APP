@@ -208,7 +208,7 @@ fun AdminUsersScreen(
         Tab(
           selected = selectedTab == 1,
           onClick = { selectedTab = 1 },
-          text = { Text("User Accounts\n(ইউজার তালিকা ও লাইন)", fontSize = 11.5.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) }
+          text = { Text("Individual Access\n(প্রতি ইউজারের আলাদা Access)", fontSize = 11.5.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) }
         )
       }
 
@@ -615,6 +615,28 @@ fun AdminUsersScreen(
             modifier = Modifier.fillMaxSize().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
           ) {
+            // Per-user overrides: these settings apply only to the selected account, not everyone sharing its role.
+            item {
+              Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier.padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                  Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Color(0xFF1D4ED8))
+                  Column {
+                    Text("Individual user permissions", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E3A8A))
+                    Text("Use Edit Permissions on a user to set that account's own View and Write access. Changes are saved locally and remain after app restart.", fontSize = 10.5.sp, color = Color(0xFF334155), lineHeight = 14.sp)
+                  }
+                }
+              }
+            }
+
             // Search Bar
             item {
               OutlinedTextField(
@@ -657,8 +679,8 @@ fun AdminUsersScreen(
                     verticalAlignment = Alignment.CenterVertically
                   ) {
                     Column(Modifier.weight(1f)) {
-                      Text(user.name, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
-                      Text("ID: ${user.id} • Pass: ${user.password}", fontSize = 11.sp, color = Color(0xFF64748B))
+                      Text(if (user.role == UserRole.ADMIN) user.name else user.id, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
+                      Text("ID: ${user.id}", fontSize = 11.sp, color = Color(0xFF64748B))
                     }
                     Surface(
                       color = when (user.role) {
@@ -818,14 +840,17 @@ fun AdminUsersScreen(
             modifier = Modifier.fillMaxWidth()
           )
 
-          OutlinedTextField(
-            value = formName,
-            onValueChange = { formName = it },
-            label = { Text("Full Name *") },
-            placeholder = { Text("e.g. Md. Shamim Hossain") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-          )
+          // Keep non-admin names stored internally, but do not display them while editing.
+          if (editingUser == null) {
+            OutlinedTextField(
+              value = formName,
+              onValueChange = { formName = it },
+              label = { Text("Full Name *") },
+              placeholder = { Text("e.g. Md. Shamim Hossain") },
+              singleLine = true,
+              modifier = Modifier.fillMaxWidth()
+            )
+          }
 
           OutlinedTextField(
             value = formPassword,

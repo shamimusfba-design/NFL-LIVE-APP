@@ -46,7 +46,7 @@ fun LoginScreen(
 ) {
   val users by repository.users.collectAsState()
   var usernameInput by remember { mutableStateOf("supervisor") }
-  var passwordInput by remember { mutableStateOf("123") }
+  var passwordInput by remember { mutableStateOf("") }
   var passwordVisible by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
   var showAdminSetupDialog by remember { mutableStateOf(false) }
@@ -106,34 +106,6 @@ fun LoginScreen(
         }
       }
       Spacer(Modifier.height(12.dp))
-
-      // Prominent Developer Credit Banner
-      Surface(
-        color = Color(0xFF0B2D4D),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color(0xFF22B8F0).copy(alpha = 0.65f)),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
-      ) {
-        Column(
-          modifier = Modifier.padding(vertical = 9.dp, horizontal = 14.dp),
-          horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-          Text(
-            text = "This app is developed by Shamim",
-            color = Color(0xFF38BDF8),
-            fontSize = 13.5.sp,
-            fontWeight = FontWeight.Bold
-          )
-          Spacer(Modifier.height(2.dp))
-          Text(
-            text = "IPE and Planning • Northern Fashions Ltd.",
-            color = Color(0xFFE2E8F0),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium
-          )
-        }
-      }
-      Spacer(Modifier.height(14.dp))
 
       Card(
         modifier = Modifier.fillMaxWidth(),
@@ -223,27 +195,6 @@ fun LoginScreen(
             Text("Configure administrator access", color = LoginMuted, fontSize = 12.sp)
           }
 
-          HorizontalDivider(color = LoginBorder.copy(alpha = 0.5f))
-          Column(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-          ) {
-            Text(
-              text = "This app is developed by Shamim",
-              color = Color(0xFF67E8F9),
-              fontSize = 12.sp,
-              fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-              text = "IPE and Planning",
-              color = LoginMuted,
-              fontSize = 11.sp,
-              fontWeight = FontWeight.Medium
-            )
-          }
         }
       }
 
@@ -265,7 +216,8 @@ fun LoginScreen(
             Surface(
               onClick = {
                 usernameInput = user.id
-                passwordInput = user.password
+                passwordInput = ""
+                passwordVisible = false
                 errorMessage = null
               },
               shape = RoundedCornerShape(13.dp),
@@ -295,7 +247,7 @@ fun LoginScreen(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                  Text(user.name, color = LoginText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                  Text(if (user.role == UserRole.ADMIN) user.name else user.id, color = LoginText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                   Text(user.role.displayName, color = LoginMuted, fontSize = 11.sp)
                 }
                 Icon(Icons.Default.ChevronRight, contentDescription = "Select account", tint = LoginMuted)
@@ -306,8 +258,26 @@ fun LoginScreen(
       }
       Spacer(Modifier.height(22.dp))
       Text("NORTHERN FASHIONS LTD.", color = LoginMuted.copy(alpha = 0.85f), fontSize = 10.sp, letterSpacing = 1.5.sp)
-      Spacer(Modifier.height(8.dp))
+      Spacer(Modifier.height(42.dp))
     }
+
+    // Keep the developer credit separate from the scrollable form so it stays
+    // at the bottom on compact screens and moves above the software keyboard.
+    Text(
+      text = "Developed by Shamim, IPE & Planning",
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .fillMaxWidth()
+        .imePadding()
+        .navigationBarsPadding()
+        .padding(horizontal = 16.dp, vertical = 12.dp),
+      color = Color(0xFF8FA3B8),
+      fontSize = 11.sp,
+      fontWeight = FontWeight.Normal,
+      letterSpacing = 0.2.sp,
+      textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+      maxLines = 2
+    )
   }
 
   if (showAdminSetupDialog) {

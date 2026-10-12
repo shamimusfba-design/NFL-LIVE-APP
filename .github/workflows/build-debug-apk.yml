@@ -1,13 +1,11 @@
-name: Build NOS Live Debug APK
+name: Build NFL Live Debug APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/access-control-phase1]
     paths:
       - 'app/**'
       - 'gradle/**'
-      - 'gradlew'
-      - 'gradlew.bat'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle.properties'
@@ -36,26 +34,16 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Create local debug signing key required by project
-        run: |
-          keytool -genkeypair -v \
-            -keystore debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
 
       - name: Rename APK for easy download
-        run: cp app/build/outputs/apk/debug/app-debug.apk NOS-Live-app-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk NFL-LIVE-debug.apk
 
       - name: Upload installable APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NOS-Live-app-debug
-          path: NOS-Live-app-debug.apk
+          name: NFL-LIVE-debug-apk
+          path: NFL-LIVE-debug.apk
           if-no-files-found: error
           retention-days: 30

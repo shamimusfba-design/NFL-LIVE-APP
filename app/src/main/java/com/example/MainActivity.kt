@@ -68,6 +68,35 @@ class MainActivity : ComponentActivity() {
         var selectedDeepDiveLineId by remember { mutableStateOf("K1") }
         var selectedMonthlyMetric by remember { mutableStateOf(com.example.model.MonthlyMetricType.EFFICIENCY) }
 
+        // Route-level RBAC prevents opening restricted sections through navigation.
+        // Repository write methods validate permissions independently as well.
+        LaunchedEffect(currentScreen, currentUser, selectedMonthlyMetric) {
+          val user = currentUser
+          val allowed = user?.isAdmin == true || when (currentScreen) {
+            AppScreen.LOGIN -> true
+            AppScreen.HOME -> user?.canViewDashboard == true
+            AppScreen.PRODUCTION_ENTRY -> user?.canProductionWrite == true
+            AppScreen.QUALITY_ENTRY -> user?.canQualityWrite == true || user?.canOqlWrite == true
+            AppScreen.NPT_SUPERVISOR -> user?.canNptWrite == true
+            AppScreen.SUPERVISOR_SETUP -> user?.canMorningTargetWrite == true || user?.canTargetRevisionWrite == true
+            AppScreen.MONTHLY_SETUP -> user?.canMonthlyTargetWrite == true
+            AppScreen.ADMIN_USERS -> user?.isAdmin == true
+            AppScreen.LINE_DEEP_DIVE -> user?.canViewLineDeepDive == true
+            AppScreen.TV_DASHBOARD -> user?.canViewTvDashboard == true
+            AppScreen.HISTORY_SYNC -> user?.canViewAuditLogs == true ||
+              user?.canExportReports == true || user?.hasAnyWritePermission == true
+            AppScreen.SETTINGS -> user?.isAdmin == true
+            AppScreen.MONTHLY_BREAKDOWN -> when (selectedMonthlyMetric) {
+              com.example.model.MonthlyMetricType.EFFICIENCY -> user?.canViewMonthlyEfficiency == true
+              com.example.model.MonthlyMetricType.DHU -> user?.canViewMonthlyDhu == true
+              com.example.model.MonthlyMetricType.OQL -> user?.canViewMonthlyOql == true
+            }
+          }
+          if (user != null && currentScreen != AppScreen.LOGIN && !allowed) {
+            currentScreen = AppScreen.HOME
+          }
+        }
+
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val scope = rememberCoroutineScope()
 
