@@ -979,7 +979,7 @@ class NflRepository(private val context: Context) {
       "ACCESS_CONTROL",
       module,
       "DENY_$action",
-      user?.name ?: "Unauthenticated",
+      user?.let { if (it.isAdmin) it.name else it.id } ?: "Unauthenticated",
       "Permission denied for " + (user?.role?.displayName ?: "no active user")
     )
   }
@@ -1039,10 +1039,10 @@ class NflRepository(private val context: Context) {
     if (user != null) {
       _currentUser.value = user
       _currentRole.value = user.role
-      _currentUserName.value = user.name
+      _currentUserName.value = if (user.isAdmin) user.name else user.id
       _currentFloor.value = user.floor
       _assignedLine.value = user.assignedLine
-      addAuditLog("AUTH", user.id, "LOGIN", user.name, "Role: ${user.role.displayName}")
+      addAuditLog("AUTH", user.id, "LOGIN", if (user.isAdmin) user.name else user.id, "Role: ${user.role.displayName}")
       return true
     }
     return false
@@ -1052,17 +1052,17 @@ class NflRepository(private val context: Context) {
     val user = _users.value.find { it.role == role } ?: return false
     _currentUser.value = user
     _currentRole.value = user.role
-    _currentUserName.value = user.name
+    _currentUserName.value = if (user.isAdmin) user.name else user.id
     _currentFloor.value = user.floor
     _assignedLine.value = user.assignedLine
-    addAuditLog("AUTH", user.id, "ROLE_SWITCH", user.name, "Switched to role: ${user.role.displayName}")
+    addAuditLog("AUTH", user.id, "ROLE_SWITCH", if (user.isAdmin) user.name else user.id, "Switched to role: ${user.role.displayName}")
     return true
   }
 
   fun logout() {
     val user = _currentUser.value
     if (user != null) {
-      addAuditLog("AUTH", user.id, "LOGOUT", user.name, "Session ended")
+      addAuditLog("AUTH", user.id, "LOGOUT", if (user.isAdmin) user.name else user.id, "Session ended")
     }
     _currentUser.value = null
   }
