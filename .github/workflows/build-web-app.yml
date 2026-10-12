@@ -1,0 +1,55 @@
+name: Build NFL LIVE Web App
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - deploy/web-subdomain-demo
+    paths:
+      - "web-dashboard-and-mobile/**"
+      - ".github/workflows/build-web-app.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-dashboard-and-mobile
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web-dashboard-and-mobile/package.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Add Apache SPA fallback
+        run: |
+          if [ -f public/.htaccess ]; then
+            cp public/.htaccess dist/.htaccess
+          fi
+
+      - name: Package upload-ready website
+        run: |
+          cd dist
+          zip -r ../../nfl-live-web-upload.zip .
+
+      - name: Upload deployment ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-live-web-upload
+          path: nfl-live-web-upload.zip
+          if-no-files-found: error
+          retention-days: 14
