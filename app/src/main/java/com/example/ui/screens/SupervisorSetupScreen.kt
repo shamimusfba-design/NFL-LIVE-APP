@@ -42,21 +42,27 @@ fun SupervisorSetupScreen(
 ) {
   val assignedLine by repository.assignedLine.collectAsState()
   val allTargets by repository.targets.collectAsState()
+  val currentUser by repository.currentUser.collectAsState()
+  val canMorningTargetWrite = currentUser?.canMorningTargetWrite ?: false
 
   var selectedFloor by remember { mutableStateOf(FloorScope.SEW_2) }
   var selectedLine by remember { mutableStateOf(assignedLine) }
   var showLineDropdown by remember { mutableStateOf(false) }
 
-  // Quick item preset chips
-  val commonItems = listOf(
-    "Polo Shirt" to 14.50,
-    "Basic T-Shirt" to 10.50,
-    "Crew Neck Tee" to 12.20,
-    "Track Jacket" to 15.20,
-    "Zip Hoodie" to 16.80,
-    "Sports Vest" to 11.00,
-    "Fleece Jogger" to 17.50,
-    "Raglan Tee" to 13.00
+  // Quick garment item preset chips (Requested specifically by user)
+  val garmentItems = listOf(
+    "SS T-Shirt",
+    "LS T-Shirt",
+    "Sweatshirt",
+    "Pant",
+    "Leggings",
+    "Jacket",
+    "Hoodie",
+    "Hoodie with Zipper",
+    "Skirt",
+    "Bodysuit",
+    "Jumpsuit",
+    "Dress"
   )
 
   // Load current setup for selected line
@@ -67,6 +73,7 @@ fun SupervisorSetupScreen(
   var targetDailyPcsText by remember(selectedLine) { mutableStateOf(currentSetup.targetDailyPcs.toString()) }
   var targetEffText by remember(selectedLine) { mutableStateOf(currentSetup.targetEfficiencyPct.toString()) }
   var operatorsText by remember(selectedLine) { mutableStateOf(currentSetup.operatorsCount.toString()) }
+  var machinesText by remember(selectedLine) { mutableStateOf(currentSetup.machinesCount.toString()) }
   var helpersText by remember(selectedLine) { mutableStateOf(currentSetup.helpersCount.toString()) }
   var finishingText by remember(selectedLine) { mutableStateOf(currentSetup.finishingStaffCount.toString()) }
   var includeHelpers by remember(selectedLine) { mutableStateOf(currentSetup.includeHelpersInEfficiency) }
@@ -131,7 +138,7 @@ fun SupervisorSetupScreen(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
-        listOf(FloorScope.SEW_1, FloorScope.SEW_2, FloorScope.SEW_3, FloorScope.FINISHING, FloorScope.ALL).forEach { floor ->
+        listOf(FloorScope.SEW_1, FloorScope.SEW_2, FloorScope.SEW_3, FloorScope.ALL).forEach { floor ->
           val isSelected = selectedFloor == floor
           Surface(
             onClick = { selectedFloor = floor },
@@ -146,27 +153,48 @@ fun SupervisorSetupScreen(
             ) {
               Text(
                 text = when (floor) {
-                  FloorScope.SEW_1 -> "Sew 1"
-                  FloorScope.SEW_2 -> "Sew 2"
-                  FloorScope.SEW_3 -> "Sew 3"
-                  FloorScope.FINISHING -> "Finish"
+                  FloorScope.SEW_1 -> "Sew-1"
+                  FloorScope.SEW_2 -> "Sew-2"
+                  FloorScope.SEW_3 -> "Sew-3"
                   FloorScope.ALL -> "All"
+                  else -> floor.displayName
                 },
-                fontSize = 11.sp,
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (isSelected) Color.White else Color(0xFF334155)
               )
               Text(
                 text = when (floor) {
-                  FloorScope.SEW_1 -> "22 Lines"
-                  FloorScope.SEW_2 -> "14 Lines"
-                  FloorScope.SEW_3 -> "24 Lines"
-                  FloorScope.FINISHING -> "4 Lines"
-                  FloorScope.ALL -> "64 Lines"
+                  FloorScope.SEW_1 -> "24 Lines"
+                  FloorScope.SEW_2 -> "16 Lines"
+                  FloorScope.SEW_3 -> "26 Lines"
+                  FloorScope.ALL -> "66 Lines"
+                  else -> ""
                 },
                 fontSize = 8.sp,
                 color = if (isSelected) Color(0xFF94A3B8) else Color(0xFF64748B)
               )
+            }
+          }
+        }
+      }
+
+      if (!canMorningTargetWrite) {
+        Surface(
+          color = Color(0xFFFEF3C7),
+          shape = RoundedCornerShape(8.dp),
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B)),
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(18.dp))
+            Column {
+              Text("View-Only Mode (টার্গেট সেটআপ লক করা)", color = Color(0xFF92400E), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+              Text("You have read-only access. Only floor supervisors & IE can adjust line targets and SMV. (Management has view-only access).", color = Color(0xFFB45309), fontSize = 10.sp)
             }
           }
         }
@@ -228,31 +256,45 @@ fun SupervisorSetupScreen(
 
           // Quick Item Selection Chips
           Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Quick Presets (Item & SMV):", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF64748B))
+            Text("Garment Item Presets (আইটেম সিলেক্ট করুন):", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF64748B))
             Row(
               modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
               horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-              commonItems.forEach { (item, smv) ->
+              garmentItems.forEach { item ->
                 Surface(
                   onClick = {
                     itemNameText = item
-                    smvText = smv.toString()
                   },
                   shape = RoundedCornerShape(6.dp),
                   color = if (itemNameText == item) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
                   border = androidx.compose.foundation.BorderStroke(1.dp, if (itemNameText == item) Color(0xFF3B82F6) else Color(0xFFE2E8F0))
                 ) {
                   Text(
-                    text = "$item ($smv)",
+                    text = item,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (itemNameText == item) Color(0xFF1D4ED8) else Color(0xFF475569),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                   )
                 }
+              }
+              // Custom Item option
+              Surface(
+                onClick = { itemNameText = "" },
+                shape = RoundedCornerShape(6.dp),
+                color = if (itemNameText !in garmentItems && itemNameText.isNotBlank()) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (itemNameText !in garmentItems && itemNameText.isNotBlank()) Color(0xFF3B82F6) else Color(0xFFE2E8F0))
+              ) {
+                Text(
+                  text = "✏️ Custom",
+                  fontSize = 10.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = if (itemNameText !in garmentItems && itemNameText.isNotBlank()) Color(0xFF1D4ED8) else Color(0xFF475569),
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
               }
             }
           }
@@ -302,7 +344,7 @@ fun SupervisorSetupScreen(
             )
           }
 
-          // Row 3: Manpower (Operators, Helpers, Finishing)
+          // Row 3: Manpower & Machines (Operators, Running Machines, Helpers)
           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
               value = operatorsText,
@@ -314,18 +356,18 @@ fun SupervisorSetupScreen(
             )
 
             OutlinedTextField(
-              value = helpersText,
-              onValueChange = { helpersText = it },
-              label = { Text("Helpers (হেলপার)") },
+              value = machinesText,
+              onValueChange = { machinesText = it },
+              label = { Text("Machines (মেশিন)") },
               modifier = Modifier.weight(1f),
               singleLine = true,
               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
 
             OutlinedTextField(
-              value = finishingText,
-              onValueChange = { finishingText = it },
-              label = { Text("Finishing (ফিনিশিং)") },
+              value = helpersText,
+              onValueChange = { helpersText = it },
+              label = { Text("Helpers (হেলপার)") },
               modifier = Modifier.weight(1f),
               singleLine = true,
               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -421,6 +463,7 @@ fun SupervisorSetupScreen(
                 targetHourlyPcs = ((targetDailyPcsText.toIntOrNull() ?: 480) / 8).coerceAtLeast(1),
                 targetEfficiencyPct = targetEffText.toDoubleOrNull() ?: 75.0,
                 operatorsCount = operatorsText.toIntOrNull() ?: 20,
+                machinesCount = machinesText.toIntOrNull() ?: (operatorsText.toIntOrNull() ?: 20),
                 helpersCount = helpersText.toIntOrNull() ?: 2,
                 finishingStaffCount = finishingText.toIntOrNull() ?: 4,
                 includeHelpersInEfficiency = includeHelpers,
@@ -441,185 +484,6 @@ fun SupervisorSetupScreen(
             Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text("Save Morning Target & Efficiency", fontWeight = FontWeight.Bold)
-          }
-        }
-      }
-
-      // 3. Full Matrix Table of Real Lines on Selected Floor
-      Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE2E8F0)))
-      ) {
-        Column(
-          modifier = Modifier.padding(12.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Column {
-              Text(
-                text = "${selectedFloor.displayName} — Real Lines Morning Target Matrix",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF0F172A)
-              )
-              Text(
-                text = "Tap any line below to load into editor • Real Line IDs always preserved",
-                fontSize = 10.sp,
-                color = Color(0xFF64748B)
-              )
-            }
-
-            Surface(color = Color(0xFFF1F5F9), shape = RoundedCornerShape(4.dp)) {
-              Text(
-                text = "${floorLines.size} Lines",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF334155),
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-              )
-            }
-          }
-
-          // Horizontally scrollable table
-          Box(
-            modifier = Modifier
-              .fillMaxWidth()
-              .horizontalScroll(rememberScrollState())
-          ) {
-            Column(
-              modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(min = 520.dp),
-              verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-              // Header
-              Surface(
-                color = Color(0xFF0F172A),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.fillMaxWidth()
-              ) {
-                Row(
-                  modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                  verticalAlignment = Alignment.CenterVertically
-                ) {
-                  Text("Line", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.1f))
-                  Text("Item Name", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.7f))
-                  Text("SMV", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                  Text("Target Pcs", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
-                  Text("Target Eff", color = Color(0xFFFBBF24), fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
-                  Text("Manpower", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                  Text("Edit", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(0.9f))
-                }
-              }
-
-              // Lines rows
-              floorLines.forEachIndexed { index, line ->
-                val lineSetup = allTargets.find { it.lineId == line.id } ?: repository.getLineSetup(line.id)
-                val isSelected = selectedLine == line.id
-                val isEven = index % 2 == 0
-
-                Surface(
-                  color = when {
-                    isSelected -> Color(0xFFEFF6FF)
-                    isEven -> Color(0xFFFAFAFA)
-                    else -> Color.White
-                  },
-                  shape = RoundedCornerShape(6.dp),
-                  border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (isSelected) Color(0xFF3B82F6) else Color(0xFFF1F5F9)
-                  ),
-                  modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { selectedLine = line.id }
-                ) {
-                  Row(
-                    modifier = Modifier
-                      .fillMaxWidth()
-                      .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                  ) {
-                    // Line Name (Clean)
-                    Text(
-                      text = line.id,
-                      fontSize = 11.sp,
-                      fontWeight = FontWeight.Black,
-                      color = if (isSelected) Color(0xFF1D4ED8) else Color(0xFF0F172A),
-                      modifier = Modifier.weight(1.1f)
-                    )
-
-                    // Item Name
-                    Text(
-                      text = lineSetup.itemName,
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.SemiBold,
-                      color = Color(0xFF334155),
-                      maxLines = 1,
-                      overflow = TextOverflow.Ellipsis,
-                      modifier = Modifier.weight(1.7f)
-                    )
-
-                    // SMV
-                    Text(
-                      text = String.format("%.2f", lineSetup.smv),
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color(0xFF0284C7),
-                      textAlign = TextAlign.End,
-                      modifier = Modifier.weight(1.0f)
-                    )
-
-                    // Target Pcs
-                    Text(
-                      text = "${lineSetup.targetDailyPcs}",
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color(0xFF0F172A),
-                      textAlign = TextAlign.End,
-                      modifier = Modifier.weight(1.1f)
-                    )
-
-                    // Target Eff %
-                    Text(
-                      text = "${lineSetup.targetEfficiencyPct.toInt()}%",
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.ExtraBold,
-                      color = Color(0xFFB45309),
-                      textAlign = TextAlign.End,
-                      modifier = Modifier.weight(1.1f)
-                    )
-
-                    // Manpower
-                    Text(
-                      text = "${lineSetup.operatorsCount} Ops",
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.Medium,
-                      color = Color(0xFF64748B),
-                      textAlign = TextAlign.End,
-                      modifier = Modifier.weight(1.0f)
-                    )
-
-                    // Edit button icon
-                    Box(modifier = Modifier.weight(0.9f), contentAlignment = Alignment.Center) {
-                      Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Edit Line",
-                        tint = if (isSelected) Color(0xFF1D4ED8) else Color(0xFF94A3B8),
-                        modifier = Modifier.size(14.dp)
-                      )
-                    }
-                  }
-                }
-              }
-            }
           }
         }
       }

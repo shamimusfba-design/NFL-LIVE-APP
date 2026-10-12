@@ -34,16 +34,17 @@ fun MonthlySetupScreen(
 ) {
   val monthlyTargets by repository.monthlyTargets.collectAsState()
   val userName by repository.currentUserName.collectAsState()
+  val currentUser by repository.currentUser.collectAsState()
+  val canMonthlyTargetWrite = currentUser?.canMonthlyTargetWrite ?: false
 
   var selectedFloor by remember { mutableStateOf(FloorScope.SEW_2) }
   val currentTarget = remember(selectedFloor, monthlyTargets) {
     repository.getMonthlyTarget(selectedFloor.apiValue)
   }
 
-  var targetEffText by remember(selectedFloor) { mutableStateOf(currentTarget.targetEfficiencyPct.toString()) }
   var updateEffText by remember(selectedFloor) { mutableStateOf(currentTarget.updateEfficiencyPct.toString()) }
-  var targetOqlText by remember(selectedFloor) { mutableStateOf(currentTarget.targetOqlPct.toString()) }
-  var targetDhuText by remember(selectedFloor) { mutableStateOf(currentTarget.targetDhuPct.toString()) }
+  var updateOqlText by remember(selectedFloor) { mutableStateOf(currentTarget.targetOqlPct.toString()) }
+  var updateDhuText by remember(selectedFloor) { mutableStateOf(currentTarget.targetDhuPct.toString()) }
   var friPassText by remember(selectedFloor) { mutableStateOf(currentTarget.friPassRatePct.toString()) }
 
   var saveSuccessMsg by remember { mutableStateOf<String?>(null) }
@@ -53,8 +54,8 @@ fun MonthlySetupScreen(
       TopAppBar(
         title = {
           Column {
-            Text("Monthly Baseline & Target Setup", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-            Text("মাসিক এফিসিয়েন্সি, ওকিউএল ও কোয়ালিটি টার্গেট কনফিগারেশন", fontSize = 10.sp, color = Color(0xFFBAE6FD))
+            Text("Monthly Achieved Data Setup", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+            Text("মাসিক আপটুডেট এচিভড এফিসিয়েন্সি, ওকিউএল ও ডিএইচইউ ম্যানুয়াল এন্ট্রি", fontSize = 10.sp, color = Color(0xFFBAE6FD))
           }
         },
         navigationIcon = {
@@ -116,7 +117,7 @@ fun MonthlySetupScreen(
         }
       }
 
-      // 2. Target Fields Card
+      // 2. Achieved Data Fields Card
       Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -132,53 +133,54 @@ fun MonthlySetupScreen(
           Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.DateRange, contentDescription = null, tint = Color(0xFF0284C7))
             Text(
-              text = "${selectedFloor.displayName} — Monthly Targets (October 2026)",
-              fontSize = 14.sp,
+              text = "${selectedFloor.displayName} — Monthly Up-to-Date Achieved (October 2026)",
+              fontSize = 13.5.sp,
               fontWeight = FontWeight.ExtraBold,
               color = Color(0xFF0F172A)
             )
           }
 
-          // Row 1: Target Efficiency & Update Efficiency
-          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(
-              value = targetEffText,
-              onValueChange = { targetEffText = it },
-              label = { Text("Monthly Target Eff (%)") },
-              placeholder = { Text("e.g. 72.0") },
-              modifier = Modifier.weight(1f),
-              singleLine = true,
-              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-            )
-
-            OutlinedTextField(
-              value = updateEffText,
-              onValueChange = { updateEffText = it },
-              label = { Text("Update Efficiency (%)") },
-              placeholder = { Text("e.g. 68.5") },
-              modifier = Modifier.weight(1f),
-              singleLine = true,
-              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+          Surface(
+            color = Color(0xFFF0FDF4),
+            shape = RoundedCornerShape(6.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Text(
+              text = "📌 নির্দেশিকা: এখানে মাসিক টার্গেট দেওয়ার প্রয়োজন নেই। পুরো মাসের আপটুডেট এচিভ কত হয়েছে (Achieved Efficiency, Achieved OQL, Achieved DHU) এগুলো সরাসরি এন্ট্রি দিন। সিস্টেম স্বয়ংক্রিয়ভাবে এগুলো ড্যাশবোর্ডে শো করবে।",
+              fontSize = 10.sp,
+              color = Color(0xFF166534),
+              modifier = Modifier.padding(8.dp)
             )
           }
 
-          // Row 2: Target OQL & Target DHU
+          // Row 1: Monthly Achieved Efficiency (%)
+          OutlinedTextField(
+            value = updateEffText,
+            onValueChange = { updateEffText = it },
+            label = { Text("Monthly Achieved Efficiency (%) — আপটুডেট এচিভ") },
+            placeholder = { Text("e.g. 71.5") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+          )
+
+          // Row 2: Monthly Achieved OQL (%) & Monthly Achieved DHU
           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedTextField(
-              value = targetOqlText,
-              onValueChange = { targetOqlText = it },
-              label = { Text("Monthly OQL Target (%)") },
-              placeholder = { Text("e.g. 3.50") },
+              value = updateOqlText,
+              onValueChange = { updateOqlText = it },
+              label = { Text("Monthly Achieved OQL (%)") },
+              placeholder = { Text("e.g. 3.20") },
               modifier = Modifier.weight(1f),
               singleLine = true,
               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
             )
 
             OutlinedTextField(
-              value = targetDhuText,
-              onValueChange = { targetDhuText = it },
-              label = { Text("Monthly DHU Target (%)") },
-              placeholder = { Text("e.g. 2.00") },
+              value = updateDhuText,
+              onValueChange = { updateDhuText = it },
+              label = { Text("Monthly Achieved DHU") },
+              placeholder = { Text("e.g. 1.75") },
               modifier = Modifier.weight(1f),
               singleLine = true,
               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -189,7 +191,7 @@ fun MonthlySetupScreen(
           OutlinedTextField(
             value = friPassText,
             onValueChange = { friPassText = it },
-            label = { Text("FRI Pass Rate Target (%) — Final Random Inspection") },
+            label = { Text("Monthly FRI Pass Rate (%) — Final Inspection") },
             placeholder = { Text("e.g. 100.0") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -213,30 +215,55 @@ fun MonthlySetupScreen(
             }
           }
 
+          if (!canMonthlyTargetWrite) {
+            Surface(
+              color = Color(0xFFFEF3C7),
+              shape = RoundedCornerShape(8.dp),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Row(
+                modifier = Modifier.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                  text = "🔒 ভিউ অনলি মোড (View Only) — আপনার মাসিক ফ্যাক্টরি টার্গেট সংশোধনের অনুমতি নেই। শুধুমাত্র অ্যাডমিন বা আইপিই এটি পরিবর্তন করতে পারবেন।",
+                  color = Color(0xFF92400E),
+                  fontSize = 11.5.sp
+                )
+              }
+            }
+          }
+
           // Save Button
           Button(
             onClick = {
               val target = MonthlyFactoryTarget(
                 floor = selectedFloor.apiValue,
-                targetEfficiencyPct = targetEffText.toDoubleOrNull() ?: 72.0,
-                updateEfficiencyPct = updateEffText.toDoubleOrNull() ?: 68.5,
-                targetOqlPct = targetOqlText.toDoubleOrNull() ?: 3.50,
-                targetDhuPct = targetDhuText.toDoubleOrNull() ?: 2.00,
+                targetEfficiencyPct = updateEffText.toDoubleOrNull() ?: 71.5,
+                updateEfficiencyPct = updateEffText.toDoubleOrNull() ?: 71.5,
+                targetOqlPct = updateOqlText.toDoubleOrNull() ?: 3.20,
+                targetDhuPct = updateDhuText.toDoubleOrNull() ?: 1.75,
                 friPassRatePct = friPassText.toDoubleOrNull() ?: 100.0,
                 lastUpdatedBy = userName
               )
               repository.saveMonthlyTarget(target)
-              saveSuccessMsg = "✓ Saved Monthly Targets for ${selectedFloor.displayName} (Eff: ${target.targetEfficiencyPct}%, Update: ${target.updateEfficiencyPct}%, OQL: ${target.targetOqlPct}%)"
+              saveSuccessMsg = "✓ Saved Monthly Achieved for ${selectedFloor.displayName} (Eff: ${target.updateEfficiencyPct}%, OQL: ${target.targetOqlPct}%, DHU: ${target.targetDhuPct})"
             },
+            enabled = canMonthlyTargetWrite,
             modifier = Modifier
               .fillMaxWidth()
               .height(48.dp),
             shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = NflRoyalBlue)
+            colors = ButtonDefaults.buttonColors(
+              containerColor = if (canMonthlyTargetWrite) NflRoyalBlue else Color(0xFF94A3B8)
+            )
           ) {
             Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Save Monthly Targets & Baselines", fontWeight = FontWeight.Bold)
+            Text(if (canMonthlyTargetWrite) "Save Monthly Achieved Data" else "🔒 Entry Locked (View Only)", fontWeight = FontWeight.Bold)
           }
         }
       }

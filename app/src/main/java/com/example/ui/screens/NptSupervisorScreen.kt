@@ -39,6 +39,7 @@ fun NptSupervisorScreen(
   val incidents by repository.incidents.collectAsState()
   val userName by repository.currentUserName.collectAsState()
   val currentUser by repository.currentUser.collectAsState()
+  val canNptWrite = currentUser?.canNptWrite ?: false
 
   var selectedTab by remember { mutableIntStateOf(0) } // 0: Active NPT, 1: NPT History
   var filterCategory by remember { mutableStateOf<String>("ALL") }
@@ -143,23 +144,27 @@ fun NptSupervisorScreen(
           }
         },
         actions = {
-          IconButton(onClick = { showReportNptDialog = true }) {
-            Icon(Icons.Default.AddAlert, contentDescription = "Report NPT", tint = Color(0xFFFDE047))
+          if (canNptWrite) {
+            IconButton(onClick = { showReportNptDialog = true }) {
+              Icon(Icons.Default.AddAlert, contentDescription = "Report NPT", tint = Color(0xFFFDE047))
+            }
           }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
       )
     },
     floatingActionButton = {
-      ExtendedFloatingActionButton(
-        onClick = { showReportNptDialog = true },
-        containerColor = Color(0xFFDC2626),
-        contentColor = Color.White,
-        modifier = Modifier.testTag("start_incident_fab")
-      ) {
-        Icon(Icons.Default.WarningAmber, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(6.dp))
-        Text("Report NPT", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+      if (canNptWrite) {
+        ExtendedFloatingActionButton(
+          onClick = { showReportNptDialog = true },
+          containerColor = Color(0xFFDC2626),
+          contentColor = Color.White,
+          modifier = Modifier.testTag("start_incident_fab")
+        ) {
+          Icon(Icons.Default.WarningAmber, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(modifier = Modifier.width(6.dp))
+          Text("Report NPT", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
       }
     },
     containerColor = Color(0xFFF8FAFC)
@@ -169,6 +174,30 @@ fun NptSupervisorScreen(
         .fillMaxSize()
         .padding(paddingValues)
     ) {
+      if (!canNptWrite) {
+        Surface(
+          color = Color(0xFFFEF3C7),
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+          shape = RoundedCornerShape(8.dp),
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A))
+        ) {
+          Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+              text = "ভিউ অনলি মোড (View Only) — আপনার এনপিটি এন্ট্রি বা ব্রেকডাউন লগ করার অনুমতি নেই।",
+              color = Color(0xFF92400E),
+              fontSize = 11.5.sp,
+              fontWeight = FontWeight.Medium
+            )
+          }
+        }
+      }
       // 1. Tab Selector (Active Stoppages vs Stoppage History)
       TabRow(
         selectedTabIndex = selectedTab,
@@ -525,8 +554,10 @@ fun NptSupervisorScreen(
                       Text(if (inc.isMutedOnCurrentDevice) "🔇 Muted" else "🔔 Mute", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    // Mechanic Start Maintenance Button
-                    if (!inc.isMaintenanceStarted) {
+                    // Mechanic Start Maintenance Button - ONLY for Machine Breakdown incidents
+                    val isMachineBreakdown = inc.nptType.equals("Machine Breakdown", ignoreCase = true) ||
+                      inc.category == IncidentCategory.MACHINE_BREAKDOWN
+                    if (!inc.isMaintenanceStarted && isMachineBreakdown) {
                       Button(
                         onClick = {
                           attendingIncidentId = inc.id

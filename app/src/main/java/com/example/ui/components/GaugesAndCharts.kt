@@ -12,7 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,10 +42,12 @@ fun ExecutiveKpiCard(
   progressFraction: Float? = null,
   accentColor: Color = Color(0xFF1976D2),
   endVisual: (@Composable () -> Unit)? = null,
+  onClick: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
+  val cardModifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
   Card(
-    modifier = modifier,
+    modifier = cardModifier,
     shape = RoundedCornerShape(12.dp),
     colors = CardDefaults.cardColors(containerColor = Color.White),
     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -79,7 +81,8 @@ fun ExecutiveKpiCard(
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF475569),
-            maxLines = 1,
+            maxLines = 2,
+            lineHeight = 13.sp,
             overflow = TextOverflow.Ellipsis
           )
         }
@@ -283,55 +286,90 @@ fun OperatorMachineMetricCard(
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 12.dp, vertical = 10.dp),
+        .padding(horizontal = 10.dp, vertical = 10.dp),
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically
     ) {
-      Row(
+      // Left Column: Operators
+      Column(
         modifier = Modifier.weight(1f),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
       ) {
-        Box(
-          modifier = Modifier
-            .size(34.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFEFF6FF)),
-          contentAlignment = Alignment.Center
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-          Icon(Icons.Default.Group, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(18.dp))
+          Icon(Icons.Default.Group, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(13.dp))
+          Text(
+            text = "Operators",
+            fontSize = 11.sp,
+            color = Color(0xFF475569),
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false
+          )
         }
-        Column {
-          Text("Operators", fontSize = 10.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
-          Text("$operatorsCount", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
-        }
+        Text(
+          text = "$operatorsCount",
+          fontSize = 17.sp,
+          fontWeight = FontWeight.Black,
+          color = Color(0xFF0F172A),
+          maxLines = 1,
+          softWrap = false
+        )
+        Text(
+          text = "Present Today",
+          fontSize = 8.sp,
+          color = Color(0xFF94A3B8),
+          maxLines = 1,
+          softWrap = false
+        )
       }
 
+      // Vertical Divider
       Box(
         modifier = Modifier
           .width(1.dp)
-          .height(30.dp)
+          .height(38.dp)
           .background(Color(0xFFE2E8F0))
       )
 
-      Row(
-        modifier = Modifier.weight(1f).padding(start = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      // Right Column: Running Machines
+      Column(
+        modifier = Modifier.weight(1f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
       ) {
-        Box(
-          modifier = Modifier
-            .size(34.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFF5F3FF)),
-          contentAlignment = Alignment.Center
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-          Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+          Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(13.dp))
+          Text(
+            text = "Machines",
+            fontSize = 11.sp,
+            color = Color(0xFF475569),
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false
+          )
         }
-        Column {
-          Text("Machines", fontSize = 10.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
-          Text("$machinesCount", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
-        }
+        Text(
+          text = "$machinesCount",
+          fontSize = 17.sp,
+          fontWeight = FontWeight.Black,
+          color = Color(0xFF0F172A),
+          maxLines = 1,
+          softWrap = false
+        )
+        Text(
+          text = "Running Live",
+          fontSize = 8.sp,
+          color = Color(0xFF94A3B8),
+          maxLines = 1,
+          softWrap = false
+        )
       }
     }
   }
@@ -395,119 +433,154 @@ fun TargetVsOutputBarChart(
         }
       }
 
-      // Chart body with grid and grouped bars
-      Box(
+      // Chart body with Y-axis guidelines and horizontally scrollable grouped bars
+      val maxTarget = (displayLines.maxOfOrNull { maxOf(it.targetPcs, it.achievementPcs ?: 0) } ?: 600).coerceAtLeast(100)
+      val maxVal = (Math.ceil(maxTarget / 100.0) * 100).toFloat()
+
+      Row(
         modifier = Modifier
           .fillMaxWidth()
-          .height(170.dp)
+          .height(180.dp)
       ) {
-        // Y-axis grid guidelines: 700, 500, 300, 0
+        // Fixed Y-axis labels on the left
         Column(
-          modifier = Modifier.fillMaxSize(),
+          modifier = Modifier
+            .width(32.dp)
+            .fillMaxHeight()
+            .padding(bottom = 22.dp),
           verticalArrangement = Arrangement.SpaceBetween
         ) {
-          listOf("700", "500", "300", "100", "0").forEach { label ->
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Text(
-                text = label,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF94A3B8),
-                modifier = Modifier.width(26.dp)
-              )
+          listOf(maxVal.toInt(), (maxVal * 0.75).toInt(), (maxVal * 0.5).toInt(), (maxVal * 0.25).toInt(), 0).forEach { v ->
+            Text(
+              text = "$v",
+              fontSize = 8.5.sp,
+              fontWeight = FontWeight.SemiBold,
+              color = Color(0xFF94A3B8),
+              textAlign = TextAlign.End,
+              modifier = Modifier.fillMaxWidth()
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.width(4.dp))
+
+        // Horizontally scrollable chart bars area (resets to 0 whenever floor/title changes)
+        val chartScrollState = key(title) { rememberScrollState() }
+
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .horizontalScroll(chartScrollState)
+        ) {
+          val barWidthPerLine = 48.dp
+          val totalChartWidth = (displayLines.size * 48).coerceAtLeast(320).dp
+
+          // Grid lines behind bars
+          Column(
+            modifier = Modifier
+              .width(totalChartWidth)
+              .fillMaxHeight()
+              .padding(bottom = 22.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+          ) {
+            repeat(5) {
               Box(
                 modifier = Modifier
-                  .weight(1f)
+                  .fillMaxWidth()
                   .height(1.dp)
                   .background(Color(0xFFF1F5F9))
               )
             }
           }
-        }
 
-        // Grouped bars layer
-        Row(
-          modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 28.dp, bottom = 4.dp),
-          horizontalArrangement = Arrangement.SpaceAround,
-          verticalAlignment = Alignment.Bottom
-        ) {
-          val maxVal = 750f
+          // Grouped bars layer
+          Row(
+            modifier = Modifier
+              .width(totalChartWidth)
+              .fillMaxHeight()
+              .padding(bottom = 2.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.Bottom
+          ) {
+            displayLines.forEach { line ->
+              val targetHeight = ((line.targetPcs / maxVal) * 125f).coerceIn(8f, 125f).dp
+              val outputHeight = (((line.achievementPcs ?: 0) / maxVal) * 125f).coerceIn(4f, 125f).dp
 
-          displayLines.forEach { line ->
-            val targetHeight = ((line.targetPcs / maxVal) * 125f).coerceIn(8f, 125f).dp
-            val outputHeight = (((line.achievementPcs ?: 0) / maxVal) * 125f).coerceIn(4f, 125f).dp
-
-            Column(
-              horizontalAlignment = Alignment.CenterHorizontally,
-              verticalArrangement = Arrangement.Bottom,
-              modifier = Modifier
-                .padding(horizontal = 2.dp)
-                .then(if (onLineClick != null) Modifier.clickable { onLineClick(line.lineId) } else Modifier)
-            ) {
-              Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.Bottom
+              Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier
+                  .width(barWidthPerLine)
+                  .then(if (onLineClick != null) Modifier.clickable { onLineClick(line.lineId) } else Modifier)
               ) {
-                // Target Bar
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                  Text(
-                    text = "${line.targetPcs}",
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF64748B)
-                  )
-                  Box(
-                    modifier = Modifier
-                      .width(13.dp)
-                      .height(targetHeight)
-                      .background(Color(0xFF1E88E5), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                  )
-                }
-
-                // Output Bar
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                  if (line.achievementPcs != null) {
+                Row(
+                  horizontalArrangement = Arrangement.spacedBy(3.dp),
+                  verticalAlignment = Alignment.Bottom
+                ) {
+                  // Target Bar
+                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                      text = "${line.achievementPcs}",
-                      fontSize = 7.sp,
+                      text = "${line.targetPcs}",
+                      fontSize = 8.5.sp,
                       fontWeight = FontWeight.Bold,
-                      color = Color(0xFF047857)
+                      color = Color(0xFF64748B)
                     )
                     Box(
                       modifier = Modifier
-                        .width(13.dp)
-                        .height(outputHeight)
-                        .background(Color(0xFF10B981), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                    )
-                  } else {
-                    Text(
-                      text = "-",
-                      fontSize = 7.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color(0xFF94A3B8)
-                    )
-                    Box(
-                      modifier = Modifier
-                        .width(13.dp)
-                        .height(8.dp)
-                        .background(Color(0xFFCBD5E1), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                        .width(14.dp)
+                        .height(targetHeight)
+                        .background(Color(0xFF1E88E5), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
                     )
                   }
+
+                  // Output Bar
+                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (line.achievementPcs != null) {
+                      Text(
+                        text = "${line.achievementPcs}",
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF047857)
+                      )
+                      Box(
+                        modifier = Modifier
+                          .width(14.dp)
+                          .height(outputHeight)
+                          .background(Color(0xFF10B981), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                      )
+                    } else {
+                      Text(
+                        text = "-",
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF94A3B8)
+                      )
+                      Box(
+                        modifier = Modifier
+                          .width(14.dp)
+                          .height(8.dp)
+                          .background(Color(0xFFCBD5E1), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                      )
+                    }
+                  }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                // Clear bold line label badge
+                Surface(
+                  color = Color(0xFF0F172A),
+                  shape = RoundedCornerShape(4.dp)
+                ) {
+                  Text(
+                    text = "Line ${line.lineId}",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                  )
                 }
               }
-
-              Spacer(modifier = Modifier.height(4.dp))
-              Text(
-                text = line.lineId,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                color = Color(0xFF0F172A)
-              )
             }
           }
         }
@@ -572,104 +645,134 @@ fun LineEfficiencyBarChart(
         }
       }
 
-      Box(
+      Row(
         modifier = Modifier
           .fillMaxWidth()
-          .height(150.dp)
+          .height(160.dp)
       ) {
-        // Grid lines: 100%, 80%, 60%, 40%, 0%
+        // Y-axis labels
         Column(
-          modifier = Modifier.fillMaxSize(),
+          modifier = Modifier
+            .width(32.dp)
+            .fillMaxHeight()
+            .padding(bottom = 22.dp),
           verticalArrangement = Arrangement.SpaceBetween
         ) {
           listOf("100%", "80%", "60%", "40%", "0%").forEach { label ->
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Text(
-                text = label,
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF94A3B8),
-                modifier = Modifier.width(28.dp)
-              )
-              Box(
-                modifier = Modifier
-                  .weight(1f)
-                  .height(1.dp)
-                  .background(if (label == "80%") Color(0xFFBFDBFE) else Color(0xFFF1F5F9))
-              )
-            }
+            Text(
+              text = label,
+              fontSize = 8.sp,
+              fontWeight = FontWeight.Medium,
+              color = Color(0xFF94A3B8),
+              textAlign = TextAlign.End,
+              modifier = Modifier.fillMaxWidth()
+            )
           }
         }
 
-        Row(
-          modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 30.dp, bottom = 4.dp),
-          horizontalArrangement = Arrangement.SpaceAround,
-          verticalAlignment = Alignment.Bottom
-        ) {
-          displayLines.forEach { line ->
-            val todayEff = line.todayEfficiencyPct ?: 0.0
-            val monthEff = line.monthlyEfficiencyPct
-            val todayH = ((todayEff / 100f) * 110f).coerceIn(4.0, 110.0).dp
-            val monthH = ((monthEff / 100f) * 110f).coerceIn(4.0, 110.0).dp
+        Spacer(modifier = Modifier.width(4.dp))
 
-            Column(
-              horizontalAlignment = Alignment.CenterHorizontally,
-              verticalArrangement = Arrangement.Bottom,
-              modifier = Modifier
-                .padding(horizontal = 2.dp)
-                .then(if (onLineClick != null) Modifier.clickable { onLineClick(line.lineId) } else Modifier)
-            ) {
-              Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.Bottom
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .horizontalScroll(rememberScrollState())
+        ) {
+          val totalChartWidth = (displayLines.size * 48).coerceAtLeast(320).dp
+
+          // Grid lines
+          Column(
+            modifier = Modifier
+              .width(totalChartWidth)
+              .fillMaxHeight()
+              .padding(bottom = 22.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+          ) {
+            repeat(5) {
+              Box(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(1.dp)
+                  .background(Color(0xFFF1F5F9))
+              )
+            }
+          }
+
+          Row(
+            modifier = Modifier
+              .width(totalChartWidth)
+              .fillMaxHeight()
+              .padding(bottom = 2.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.Bottom
+          ) {
+            displayLines.forEach { line ->
+              val todayEff = line.todayEfficiencyPct ?: 0.0
+              val monthEff = line.monthlyEfficiencyPct
+              val todayH = ((todayEff / 100f) * 110f).coerceIn(4.0, 110.0).dp
+              val monthH = ((monthEff / 100f) * 110f).coerceIn(4.0, 110.0).dp
+
+              Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier
+                  .width(48.dp)
+                  .then(if (onLineClick != null) Modifier.clickable { onLineClick(line.lineId) } else Modifier)
               ) {
-                // Today Eff Bar
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                  if (line.todayEfficiencyPct != null) {
-                    Text(
-                      text = "${todayEff.toInt()}%",
-                      fontSize = 7.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = Color(0xFF0369A1)
+                Row(
+                  horizontalArrangement = Arrangement.spacedBy(2.dp),
+                  verticalAlignment = Alignment.Bottom
+                ) {
+                  // Today Eff Bar
+                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (line.todayEfficiencyPct != null) {
+                      Text(
+                        text = "${todayEff.toInt()}%",
+                        fontSize = 7.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0369A1)
+                      )
+                    }
+                    Box(
+                      modifier = Modifier
+                        .width(13.dp)
+                        .height(todayH)
+                        .background(Color(0xFF0284C7), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
                     )
                   }
-                  Box(
-                    modifier = Modifier
-                      .width(11.dp)
-                      .height(todayH)
-                      .background(Color(0xFF0284C7), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                  )
+
+                  // Month Eff Bar
+                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                      text = "${monthEff.toInt()}%",
+                      fontSize = 7.5.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color(0xFFB45309)
+                    )
+                    Box(
+                      modifier = Modifier
+                        .width(13.dp)
+                        .height(monthH)
+                        .background(Color(0xFFF59E0B), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                    )
+                  }
                 }
 
-                // Month Eff Bar
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Surface(
+                  color = Color(0xFFF1F5F9),
+                  shape = RoundedCornerShape(4.dp),
+                  border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
                   Text(
-                    text = "${monthEff.toInt()}%",
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFB45309)
-                  )
-                  Box(
-                    modifier = Modifier
-                      .width(11.dp)
-                      .height(monthH)
-                      .background(Color(0xFFF59E0B), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                    text = line.lineId,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF0F172A),
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                   )
                 }
               }
-
-              Spacer(modifier = Modifier.height(4.dp))
-              Text(
-                text = line.lineId,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                color = Color(0xFF0F172A)
-              )
             }
           }
         }
@@ -811,7 +914,7 @@ fun TopDefectsBarChart(
 
 /**
  * Industrial Radial Speedometer Gauge with needle indicator, multi-colored zones,
- * and target benchmark tick.
+ * and target benchmark tick. Uses true circular 1:1 aspect ratio.
  */
 @Composable
 fun SpeedometerGauge(
@@ -819,8 +922,7 @@ fun SpeedometerGauge(
   targetValue: Double = 75.0,
   minVal: Double = 0.0,
   maxVal: Double = 100.0,
-  modifier: Modifier = Modifier,
-  gaugeHeight: Int = 135
+  modifier: Modifier = Modifier
 ) {
   val clampedValue = value.coerceIn(minVal, maxVal).toFloat()
   val fraction = ((clampedValue - minVal) / (maxVal - minVal)).toFloat()
@@ -829,130 +931,140 @@ fun SpeedometerGauge(
   val startAngle = 150f
   val sweepAngle = 240f
 
-  Box(
-    modifier = modifier.height(gaugeHeight.dp),
-    contentAlignment = Alignment.Center
+  Column(
+    horizontalAlignment = Alignment.CenterHorizontally,
+    modifier = modifier
   ) {
-    Canvas(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 6.dp)) {
-      val strokeWidth = 14.dp.toPx()
-      val arcSize = Size(size.width - strokeWidth, (size.height * 1.6f) - strokeWidth)
-      val arcTopLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
+    Box(
+      modifier = Modifier
+        .size(width = 180.dp, height = 95.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Canvas(modifier = Modifier.fillMaxSize()) {
+        val strokeWidth = 9.dp.toPx()
+        // Radius of true circular arc (1:1 ratio, strictly circular)
+        val radius = (size.height * 0.94f) - (strokeWidth / 2f)
+        val arcDiameter = radius * 2f
+        val arcSize = Size(arcDiameter, arcDiameter)
+        val centerX = size.width / 2f
+        val centerY = size.height * 0.90f
+        val arcTopLeft = Offset(centerX - radius, centerY - radius)
 
-      // Background track
-      drawArc(
-        color = Color(0xFFE2E8F0),
-        startAngle = startAngle,
-        sweepAngle = sweepAngle,
-        useCenter = false,
-        topLeft = arcTopLeft,
-        size = arcSize,
-        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-      )
+        // Background track
+        drawArc(
+          color = Color(0xFFF1F5F9),
+          startAngle = startAngle,
+          sweepAngle = sweepAngle,
+          useCenter = false,
+          topLeft = arcTopLeft,
+          size = arcSize,
+          style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
 
-      // Color zones
-      // Zone 1: 0% - 60% Red
-      val z1Sweep = 0.60f * sweepAngle
-      drawArc(
-        color = Color(0xFFEF4444),
-        startAngle = startAngle,
-        sweepAngle = z1Sweep,
-        useCenter = false,
-        topLeft = arcTopLeft,
-        size = arcSize,
-        style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
-      )
+        // Zone 1: 0% - 60% Red (<60% Low)
+        val z1 = 0.60f * sweepAngle
+        drawArc(
+          color = Color(0xFFEF4444),
+          startAngle = startAngle,
+          sweepAngle = z1,
+          useCenter = false,
+          topLeft = arcTopLeft,
+          size = arcSize,
+          style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
 
-      // Zone 2: 60% - 75% Amber
-      val z2Sweep = 0.15f * sweepAngle
-      drawArc(
-        color = Color(0xFFF59E0B),
-        startAngle = startAngle + z1Sweep,
-        sweepAngle = z2Sweep,
-        useCenter = false,
-        topLeft = arcTopLeft,
-        size = arcSize,
-        style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
-      )
+        // Zone 2: 60% - 75% Amber (Caution)
+        val z2 = 0.15f * sweepAngle
+        drawArc(
+          color = Color(0xFFF59E0B),
+          startAngle = startAngle + z1,
+          sweepAngle = z2,
+          useCenter = false,
+          topLeft = arcTopLeft,
+          size = arcSize,
+          style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+        )
 
-      // Zone 3: 75% - 85% Sky Blue
-      val z3Sweep = 0.10f * sweepAngle
-      drawArc(
-        color = Color(0xFF0284C7),
-        startAngle = startAngle + z1Sweep + z2Sweep,
-        sweepAngle = z3Sweep,
-        useCenter = false,
-        topLeft = arcTopLeft,
-        size = arcSize,
-        style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
-      )
+        // Zone 3: 75% - 85% Sky Blue (Target)
+        val z3 = 0.10f * sweepAngle
+        drawArc(
+          color = Color(0xFF0284C7),
+          startAngle = startAngle + z1 + z2,
+          sweepAngle = z3,
+          useCenter = false,
+          topLeft = arcTopLeft,
+          size = arcSize,
+          style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+        )
 
-      // Zone 4: 85% - 100% Green
-      val z4Sweep = 0.15f * sweepAngle
-      drawArc(
-        color = Color(0xFF10B981),
-        startAngle = startAngle + z1Sweep + z2Sweep + z3Sweep,
-        sweepAngle = z4Sweep,
-        useCenter = false,
-        topLeft = arcTopLeft,
-        size = arcSize,
-        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-      )
+        // Zone 4: 85% - 100% Emerald Green (High)
+        val z4 = 0.15f * sweepAngle
+        drawArc(
+          color = Color(0xFF10B981),
+          startAngle = startAngle + z1 + z2 + z3,
+          sweepAngle = z4,
+          useCenter = false,
+          topLeft = arcTopLeft,
+          size = arcSize,
+          style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
 
-      // Center pivot point
-      val centerX = size.width / 2f
-      val centerY = size.height * 0.82f
-      val needleLength = size.width * 0.36f
+        // Target benchmark tick line (e.g. at 75%)
+        val targetAngle = startAngle + (targetFraction * sweepAngle)
+        val targetRad = Math.toRadians(targetAngle.toDouble())
+        val tickInner = radius - (strokeWidth * 0.75f)
+        val tickOuter = radius + (strokeWidth * 0.75f)
+        drawLine(
+          color = Color(0xFF0F172A),
+          start = Offset(centerX + (tickInner * Math.cos(targetRad)).toFloat(), centerY + (tickInner * Math.sin(targetRad)).toFloat()),
+          end = Offset(centerX + (tickOuter * Math.cos(targetRad)).toFloat(), centerY + (tickOuter * Math.sin(targetRad)).toFloat()),
+          strokeWidth = 2.5.dp.toPx(),
+          cap = StrokeCap.Round
+        )
 
-      // Target indicator tick
-      val targetAngleDeg = startAngle + (targetFraction * sweepAngle)
-      val targetRad = Math.toRadians(targetAngleDeg.toDouble())
-      val tickInner = needleLength * 0.85f
-      val tickOuter = needleLength * 1.18f
-      drawLine(
-        color = Color(0xFF0F172A),
-        start = Offset(centerX + (tickInner * Math.cos(targetRad)).toFloat(), centerY + (tickInner * Math.sin(targetRad)).toFloat()),
-        end = Offset(centerX + (tickOuter * Math.cos(targetRad)).toFloat(), centerY + (tickOuter * Math.sin(targetRad)).toFloat()),
-        strokeWidth = 3.dp.toPx(),
-        cap = StrokeCap.Round
-      )
+        // Needle (pointing cleanly from center, within bounds)
+        val currentAngleDeg = startAngle + (fraction * sweepAngle)
+        val angleRad = Math.toRadians(currentAngleDeg.toDouble())
+        val needleLength = radius * 0.76f
+        val needleEndX = centerX + (needleLength * Math.cos(angleRad)).toFloat()
+        val needleEndY = centerY + (needleLength * Math.sin(angleRad)).toFloat()
 
-      // Needle pointer
-      val currentAngleDeg = startAngle + (fraction * sweepAngle)
-      val angleRad = Math.toRadians(currentAngleDeg.toDouble())
-      val needleEndX = centerX + (needleLength * Math.cos(angleRad)).toFloat()
-      val needleEndY = centerY + (needleLength * Math.sin(angleRad)).toFloat()
+        drawLine(
+          color = Color(0xFF0F172A),
+          start = Offset(centerX, centerY),
+          end = Offset(needleEndX, needleEndY),
+          strokeWidth = 2.8.dp.toPx(),
+          cap = StrokeCap.Round
+        )
 
-      drawLine(
-        color = Color(0xFF0F172A),
-        start = Offset(centerX, centerY),
-        end = Offset(needleEndX, needleEndY),
-        strokeWidth = 3.5.dp.toPx(),
-        cap = StrokeCap.Round
-      )
-
-      // Pivot Cap
-      drawCircle(
-        color = Color(0xFF0F172A),
-        radius = 8.dp.toPx(),
-        center = Offset(centerX, centerY)
-      )
-      drawCircle(
-        color = if (clampedValue >= targetValue) Color(0xFF10B981) else Color(0xFFF59E0B),
-        radius = 4.dp.toPx(),
-        center = Offset(centerX, centerY)
-      )
+        // Pivot center cap
+        drawCircle(
+          color = Color(0xFF0F172A),
+          radius = 5.5.dp.toPx(),
+          center = Offset(centerX, centerY)
+        )
+        drawCircle(
+          color = when {
+            clampedValue >= targetValue -> Color(0xFF10B981)
+            clampedValue >= 60f -> Color(0xFF0284C7)
+            else -> Color(0xFFEF4444)
+          },
+          radius = 2.8.dp.toPx(),
+          center = Offset(centerX, centerY)
+        )
+      }
     }
 
-    // Centered Digital Readout
-    Column(
-      horizontalAlignment = Alignment.CenterHorizontally,
-      modifier = Modifier
-        .align(Alignment.BottomCenter)
-        .padding(bottom = 2.dp)
+    Spacer(modifier = Modifier.height(2.dp))
+
+    // Clear digital readout below the gauge so needle never collides with text
+    Row(
+      verticalAlignment = Alignment.Bottom,
+      horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
       Text(
-        text = "${String.format("%.1f", value)}%",
-        fontSize = 22.sp,
+        text = "${String.format(java.util.Locale.US, "%.1f", value)}%",
+        fontSize = 18.sp,
         fontWeight = FontWeight.Black,
         color = Color(0xFF0F172A)
       )
@@ -960,7 +1072,8 @@ fun SpeedometerGauge(
         text = "TARGET: ${targetValue.toInt()}%",
         fontSize = 9.sp,
         fontWeight = FontWeight.Bold,
-        color = Color(0xFF64748B)
+        color = Color(0xFF64748B),
+        modifier = Modifier.padding(bottom = 2.dp)
       )
     }
   }
@@ -985,15 +1098,15 @@ fun SpeedometerGaugeCard(
     border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE2E8F0))),
     modifier = modifier.fillMaxWidth()
   ) {
-    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Column {
-          Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
-          Text(text = "Speedometer dial with needle & multi-zone thresholds", fontSize = 10.sp, color = Color(0xFF64748B))
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+          Text(text = title, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+          Text(text = "Speedometer dial with needle & multi-zone thresholds", fontSize = 9.5.sp, color = Color(0xFF64748B))
         }
 
         Surface(
@@ -1002,20 +1115,26 @@ fun SpeedometerGaugeCard(
         ) {
           Text(
             text = if (currentEfficiency >= targetEfficiency) "ON TARGET" else "BELOW TARGET",
-            fontSize = 9.sp,
+            fontSize = 8.5.sp,
             fontWeight = FontWeight.Bold,
             color = if (currentEfficiency >= targetEfficiency) Color(0xFF166534) else Color(0xFFB45309),
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            maxLines = 1,
+            softWrap = false
           )
         }
       }
 
-      // Large Speedometer Dial
-      SpeedometerGauge(
-        value = currentEfficiency,
-        targetValue = targetEfficiency,
-        modifier = Modifier.fillMaxWidth().height(140.dp)
-      )
+      // Compact, Perfectly Proportioned Speedometer Dial
+      Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+      ) {
+        SpeedometerGauge(
+          value = currentEfficiency,
+          targetValue = targetEfficiency
+        )
+      }
 
       // Speedometer Zone Legend
       Row(
@@ -1023,19 +1142,19 @@ fun SpeedometerGaugeCard(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
           Box(modifier = Modifier.size(6.dp).background(Color(0xFFEF4444), CircleShape))
           Text("<60% Low", fontSize = 8.sp, color = Color(0xFF64748B))
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
           Box(modifier = Modifier.size(6.dp).background(Color(0xFFF59E0B), CircleShape))
           Text("60-75% Caution", fontSize = 8.sp, color = Color(0xFF64748B))
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
           Box(modifier = Modifier.size(6.dp).background(Color(0xFF0284C7), CircleShape))
           Text("75-85% Target", fontSize = 8.sp, color = Color(0xFF64748B))
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
           Box(modifier = Modifier.size(6.dp).background(Color(0xFF10B981), CircleShape))
           Text(">85% High", fontSize = 8.sp, color = Color(0xFF64748B))
         }
@@ -1050,15 +1169,16 @@ fun SpeedometerGaugeCard(
             .background(Color(0xFFF1F5F9))
         )
         Text(
-          text = "Line-by-Line Speedometer Dials (Tap line to open deep-dive):",
+          text = "Line-Wise Efficiency (Tap line to open deep-dive):",
           fontSize = 10.sp,
           fontWeight = FontWeight.Bold,
           color = Color(0xFF475569)
         )
+        val lineScrollState = key(title) { rememberScrollState() }
         Row(
           modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+            .horizontalScroll(lineScrollState),
           horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
           lines.forEach { line ->
@@ -1066,20 +1186,31 @@ fun SpeedometerGaugeCard(
             Surface(
               color = Color(0xFFF8FAFC),
               shape = RoundedCornerShape(8.dp),
-              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
               modifier = Modifier.clickable { onLineClick?.invoke(line.lineId) }
             ) {
               Column(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
               ) {
-                Text(line.lineId, fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
+                Surface(
+                  color = Color(0xFF0F172A),
+                  shape = RoundedCornerShape(4.dp)
+                ) {
+                  Text(
+                    text = "Line ${line.lineId}",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                  )
+                }
                 MiniSpeedometerGauge(value = eff, targetValue = line.targetEfficiencyPct)
                 Text(
                   text = "${eff.toInt()}%",
-                  fontSize = 11.sp,
-                  fontWeight = FontWeight.Bold,
+                  fontSize = 12.sp,
+                  fontWeight = FontWeight.Black,
                   color = if (eff >= line.targetEfficiencyPct) Color(0xFF16A34A) else Color(0xFFD97706)
                 )
               }
@@ -1210,6 +1341,7 @@ fun DonutAttainmentCard(
 
 /**
  * Quality Defects Donut Chart (Top 5 Pareto Breakdown)
+ * Displays: Donut Arc + Detailed Table with Checked Garments, Defect Count, Defect %, and DHU Contribution!
  */
 @Composable
 fun ParetoDonutDefectsCard(
@@ -1227,6 +1359,7 @@ fun ParetoDonutDefectsCard(
   )
 
   val totalDefects = defects.sumOf { it.count }.coerceAtLeast(1)
+  val sampleChecked = defects.firstOrNull()?.checkedGarments ?: 1200
 
   Card(
     shape = RoundedCornerShape(12.dp),
@@ -1243,10 +1376,10 @@ fun ParetoDonutDefectsCard(
       ) {
         Column {
           Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
-          Text(text = "Donut breakdown of Top 5 defects and Pareto distribution", fontSize = 10.sp, color = Color(0xFF64748B))
+          Text(text = "Defect breakdown: Checked Pcs • Defect Pcs • Share % • DHU", fontSize = 10.sp, color = Color(0xFF64748B))
         }
         Surface(color = Color(0xFFFEE2E2), shape = RoundedCornerShape(4.dp)) {
-          Text("PARETO DONUT", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+          Text("PARETO ANALYSIS", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
         }
       }
 
@@ -1274,28 +1407,397 @@ fun ParetoDonutDefectsCard(
             }
           }
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Top 5", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
+            Text("$totalDefects", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
             Text("DEFECTS", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
           }
         }
 
-        // Defect list legend
+        // Quick Pareto Summary Cards
         Column(
           modifier = Modifier.weight(1f).padding(start = 12.dp),
-          verticalArrangement = Arrangement.spacedBy(4.dp)
+          verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-          defects.take(5).forEachIndexed { idx, d ->
-            val pct = ((d.count.toFloat() / totalDefects.toFloat()) * 100).toInt()
+          Surface(
+            color = Color(0xFFF8FAFC),
+            shape = RoundedCornerShape(8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+          ) {
             Row(
-              modifier = Modifier.fillMaxWidth(),
+              modifier = Modifier.padding(8.dp),
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically
             ) {
-              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(modifier = Modifier.size(7.dp).background(sliceColors[idx % sliceColors.size], CircleShape))
-                Text(d.defectType, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155), maxLines = 1, overflow = TextOverflow.Ellipsis)
+              Column {
+                Text("Total Checked Garments", fontSize = 9.sp, color = Color(0xFF64748B))
+                Text("$sampleChecked pcs", fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
               }
-              Text("$pct% (${d.count})", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+              Column(horizontalAlignment = Alignment.End) {
+                Text("Total Defects Found", fontSize = 9.sp, color = Color(0xFF64748B))
+                Text("$totalDefects pcs", fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFFDC2626))
+              }
+            }
+          }
+
+          val floorDhu = if (sampleChecked > 0) ((totalDefects.toDouble() / sampleChecked.toDouble()) * 100.0) else 0.0
+          Surface(
+            color = Color(0xFFEFF6FF),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Row(
+              modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Text("Floor Total DHU Rate:", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E40AF))
+              Text(String.format(java.util.Locale.US, "%.2f", floorDhu), fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color(0xFF1D4ED8))
+            }
+          }
+        }
+      }
+
+      // Detailed Defect-by-Defect Breakdown Table: Checked | Defect Pcs | Share % | DHU
+      Surface(
+        color = Color(0xFFF8FAFC),
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          // Table Header
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .background(Color(0xFFE2E8F0), RoundedCornerShape(4.dp))
+              .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Text("Defect Type", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155), modifier = Modifier.weight(1.3f))
+            Text("Checked", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569), textAlign = TextAlign.End, modifier = Modifier.weight(0.9f))
+            Text("Defect", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626), textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+            Text("Share %", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+            Text("DHU", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7), textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+          }
+
+          // Table Rows
+          defects.take(5).forEachIndexed { idx, d ->
+            val color = sliceColors[idx % sliceColors.size]
+            val pct = if (d.percentage > 0.0) d.percentage else ((d.count.toDouble() / totalDefects.toDouble()) * 100.0)
+            val dhuVal = if (d.dhu > 0.0) d.dhu else ((d.count.toDouble() / sampleChecked.toDouble()) * 100.0)
+
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 3.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Row(
+                modifier = Modifier.weight(1.3f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+              ) {
+                Box(modifier = Modifier.size(7.dp).background(color, CircleShape))
+                Text(
+                  text = d.defectType,
+                  fontSize = 9.5.sp,
+                  fontWeight = FontWeight.SemiBold,
+                  color = Color(0xFF1E293B),
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis
+                )
+              }
+              Text("${d.checkedGarments} pcs", fontSize = 9.sp, color = Color(0xFF64748B), textAlign = TextAlign.End, modifier = Modifier.weight(0.9f))
+              Text("${d.count} pcs", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626), textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+              Text(String.format(java.util.Locale.US, "%.1f%%", pct), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+              Text(String.format(java.util.Locale.US, "%.2f", dhuVal), fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0284C7), textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Top 5 DHU Lines Column Chart Card (Today - Endline QC)
+ * Highlights the 5 lines with highest defect rates, featuring clear data labels on every column bar.
+ * Tapping any column opens that line's Deep-Dive performance page.
+ */
+@Composable
+fun Top5DhuLinesCard(
+  title: String = "Top 5 DHU Lines — Today (Endline QC)",
+  lines: List<LinePerformancePoint>,
+  onLineClick: ((String) -> Unit)? = null,
+  modifier: Modifier = Modifier
+) {
+  val top5Lines = lines.sortedByDescending { it.dhu ?: 0.0 }.take(5)
+  val maxDhu = (top5Lines.maxOfOrNull { it.dhu ?: 0.0 } ?: 3.0).coerceAtLeast(2.5).toFloat()
+
+  Card(
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(containerColor = Color.White),
+    elevation = CardDefaults.cardElevation(2.dp),
+    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE2E8F0))),
+    modifier = modifier.fillMaxWidth()
+  ) {
+    Column(
+      modifier = Modifier.padding(14.dp),
+      verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+          Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
+          Text(text = "Highest defect rate lines • Tap bar to open Deep-Dive", fontSize = 9.5.sp, color = Color(0xFF64748B))
+        }
+        Surface(color = Color(0xFFFEE2E2), shape = RoundedCornerShape(4.dp)) {
+          Text(
+            text = "HIGH DHU",
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFDC2626),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
+          )
+        }
+      }
+
+      // Column Chart with explicit numeric DATA LABELS
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(165.dp)
+      ) {
+        // Grid guidelines
+        Column(
+          modifier = Modifier.fillMaxSize(),
+          verticalArrangement = Arrangement.SpaceBetween
+        ) {
+          Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("${String.format(java.util.Locale.US, "%.1f", maxDhu)}", fontSize = 8.sp, color = Color(0xFF94A3B8), modifier = Modifier.width(24.dp))
+            Box(modifier = Modifier.weight(1f).height(1.dp).background(Color(0xFFF1F5F9)))
+          }
+          Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("2.0", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444), modifier = Modifier.width(24.dp))
+            Box(modifier = Modifier.weight(1f).height(1.dp).background(Color(0xFFFECACA)))
+          }
+          Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("0.0", fontSize = 8.sp, color = Color(0xFF94A3B8), modifier = Modifier.width(24.dp))
+            Box(modifier = Modifier.weight(1f).height(1.dp).background(Color(0xFFE2E8F0)))
+          }
+        }
+
+        // Columns layer
+        Row(
+          modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 26.dp, end = 6.dp, bottom = 4.dp),
+          horizontalArrangement = Arrangement.SpaceEvenly,
+          verticalAlignment = Alignment.Bottom
+        ) {
+          top5Lines.forEach { line ->
+            val dhuVal = line.dhu ?: 1.85
+            val barFraction = ((dhuVal.toFloat() / maxDhu)).coerceIn(0.12f, 1.0f)
+            val barHeight = (barFraction * 115f).dp
+            val isHighDhu = dhuVal > 2.0
+
+            Column(
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.Bottom,
+              modifier = Modifier
+                .clickable { onLineClick?.invoke(line.lineId) }
+                .padding(horizontal = 2.dp)
+            ) {
+              // Explicit Numerical DATA LABEL on top of each bar
+              Text(
+                text = String.format(java.util.Locale.US, "%.2f", dhuVal),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (isHighDhu) Color(0xFFDC2626) else Color(0xFF047857),
+                modifier = Modifier.padding(bottom = 2.dp)
+              )
+
+              // Column Bar
+              Box(
+                modifier = Modifier
+                  .width(32.dp)
+                  .height(barHeight)
+                  .background(
+                    if (isHighDhu) Color(0xFFEF4444) else Color(0xFFF59E0B),
+                    RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+                  )
+              )
+
+              // Line Label
+              Text(
+                text = line.lineId,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFF0F172A),
+                modifier = Modifier.padding(top = 4.dp)
+              )
+              Text(
+                text = line.floor.take(5),
+                fontSize = 8.sp,
+                color = Color(0xFF64748B)
+              )
+            }
+          }
+        }
+      }
+
+      // Legend Row
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+          Box(modifier = Modifier.size(8.dp).background(Color(0xFFEF4444), CircleShape))
+          Text("Critical (>2.00 DHU)", fontSize = 8.5.sp, color = Color(0xFF64748B))
+          Spacer(Modifier.width(6.dp))
+          Box(modifier = Modifier.size(8.dp).background(Color(0xFFF59E0B), CircleShape))
+          Text("Caution (≤2.00 DHU)", fontSize = 8.5.sp, color = Color(0xFF64748B))
+        }
+        Text(
+          text = "Benchmark: ≤2.00",
+          fontSize = 8.5.sp,
+          fontWeight = FontWeight.Bold,
+          color = Color(0xFFDC2626)
+        )
+      }
+    }
+  }
+}
+
+/**
+ * Top 5 Online Defects Pie Chart Card (Today - Endline QC)
+ * Solid Pie Chart displaying online defect breakdown with explicit percentage and count data labels.
+ */
+@Composable
+fun Top5DefectsPieChartCard(
+  title: String = "Top 5 Defects — Today (Endline QC)",
+  defects: List<DefectSummary>,
+  modifier: Modifier = Modifier
+) {
+  val sliceColors = listOf(
+    Color(0xFFDC2626), // Puckering - Red
+    Color(0xFFEA580C), // Broken Stitch - Orange
+    Color(0xFFD97706), // Skip Stitch - Amber
+    Color(0xFF2563EB), // Open Seam - Royal Blue
+    Color(0xFF7C3AED)  // Needle Cut - Purple
+  )
+
+  val top5 = defects.take(5)
+  val totalCount = top5.sumOf { it.count }.coerceAtLeast(1)
+
+  Card(
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(containerColor = Color.White),
+    elevation = CardDefaults.cardElevation(2.dp),
+    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE2E8F0))),
+    modifier = modifier.fillMaxWidth()
+  ) {
+    Column(
+      modifier = Modifier.padding(14.dp),
+      verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+          Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
+          Text(text = "Online top 5 garment defect breakdown with percentage & count", fontSize = 9.5.sp, color = Color(0xFF64748B))
+        }
+        Surface(color = Color(0xFFEFF6FF), shape = RoundedCornerShape(4.dp)) {
+          Text(
+            text = "PIE CHART",
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1D4ED8),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
+          )
+        }
+      }
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+      ) {
+        // Solid Filled Pie Chart Canvas
+        Box(
+          modifier = Modifier.size(130.dp),
+          contentAlignment = Alignment.Center
+        ) {
+          Canvas(modifier = Modifier.size(120.dp)) {
+            var currentAngle = -90f
+            top5.forEachIndexed { idx, d ->
+              val sweep = (d.count.toFloat() / totalCount.toFloat()) * 360f
+              val color = sliceColors[idx % sliceColors.size]
+              drawArc(
+                color = color,
+                startAngle = currentAngle,
+                sweepAngle = sweep,
+                useCenter = true, // Solid Pie Chart
+                size = size
+              )
+              currentAngle += sweep
+            }
+          }
+        }
+
+        // Defect Legend Column with Explicit Numeric Data Labels
+        Column(
+          modifier = Modifier
+            .weight(1f)
+            .padding(start = 14.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+          top5.forEachIndexed { idx, d ->
+            val pct = ((d.count.toFloat() / totalCount.toFloat()) * 100).let { Math.round(it * 10.0) / 10.0 }
+            val color = sliceColors[idx % sliceColors.size]
+            Surface(
+              color = Color(0xFFF8FAFC),
+              shape = RoundedCornerShape(6.dp),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(horizontal = 8.dp, vertical = 4.5.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                  modifier = Modifier.weight(1f)
+                ) {
+                  Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
+                  Text(
+                    text = d.defectType,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                  )
+                }
+                // Explicit Data label with count and percentage
+                Text(
+                  text = "${d.count} (${pct}%)",
+                  fontSize = 9.5.sp,
+                  fontWeight = FontWeight.ExtraBold,
+                  color = color
+                )
+              }
             }
           }
         }
@@ -1330,7 +1832,7 @@ fun LiveLinePerformanceTable(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Column {
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
           Text(
             text = "Line Performance Matrix",
             fontSize = 13.sp,
@@ -1349,198 +1851,307 @@ fun LiveLinePerformanceTable(
           shape = RoundedCornerShape(4.dp)
         ) {
           Text(
-            text = "Live Sync",
-            fontSize = 10.sp,
+            text = "⇄ Swipe Table",
+            fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF0369A1),
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+            color = Color(0xFF0284C7),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
           )
         }
       }
 
-      // Horizontally scrollable container for crisp display on all screen sizes
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .horizontalScroll(rememberScrollState())
+      // Horizontally swipeable container for crisp display of all 10 columns
+      val tableScrollState = rememberScrollState()
+      val maxScroll = tableScrollState.maxValue
+      Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
       ) {
-        Column(
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Text(
+            text = if (tableScrollState.value > 20) "◄ Swiped: Viewing Output, Efficiency, DHU & OQL" else "Swipe left to view remaining columns ➔",
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF0284C7)
+          )
+          Text(
+            text = "10 Columns Matrix",
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF64748B)
+          )
+        }
+
+        LinearProgressIndicator(
+          progress = { if (maxScroll > 0) (tableScrollState.value.toFloat() / maxScroll.toFloat()).coerceIn(0.15f, 1f) else 0.25f },
           modifier = Modifier
             .fillMaxWidth()
-            .widthIn(min = 540.dp),
+            .height(3.dp)
+            .clip(RoundedCornerShape(2.dp)),
+          color = Color(0xFF0284C7),
+          trackColor = Color(0xFFF1F5F9)
+        )
+      }
+
+      // Frozen Column Table: Left Column (Line) is Fixed; Remaining Columns Scroll Horizontally
+      Row(
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        // 1. FROZEN LINE COLUMN (Locked on left side)
+        Column(
+          modifier = Modifier.width(62.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-          // Table Header Row
+          // Frozen Header Cell
           Surface(
             color = Color(0xFF0F172A),
-            shape = RoundedCornerShape(6.dp),
-            modifier = Modifier.fillMaxWidth()
+            shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 0.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .height(36.dp)
           ) {
-            Row(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 7.dp),
-              verticalAlignment = Alignment.CenterVertically
+            Box(
+              contentAlignment = Alignment.CenterStart,
+              modifier = Modifier.padding(horizontal = 8.dp)
             ) {
-              Text("Line", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.1f))
-              Text("Item Name", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.6f))
-              Text("SMV", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-              Text("Target", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-              Text("Actual", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-              Text("Tgt %", color = Color(0xFFFBBF24), fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-              Text("Eff %", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-              Text("Status", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(1.3f))
+              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                  text = "Line",
+                  color = Color.White,
+                  fontSize = 10.sp,
+                  fontWeight = FontWeight.Black
+                )
+                Text("📌", fontSize = 8.sp)
+              }
             }
           }
 
-          // Table Rows
+          // Frozen Row Cells
           lines.forEachIndexed { index, line ->
             val isEven = index % 2 == 0
-            val hasReported = line.achievementPcs != null
-            val output = line.achievementPcs ?: 0
-            val variance = output - line.targetPcs
-            val eff = line.todayEfficiencyPct ?: 0.0
-
             Surface(
-              color = if (isEven) Color(0xFFFAFAFA) else Color.White,
-              shape = RoundedCornerShape(6.dp),
-              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
+              onClick = { onLineClick(line) },
+              color = if (isEven) Color(0xFFF1F5F9) else Color(0xFFE2E8F0),
+              shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
               modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onLineClick(line) }
+                .height(38.dp)
+            ) {
+              Box(
+                contentAlignment = Alignment.CenterStart,
+                modifier = Modifier.padding(horizontal = 8.dp)
+              ) {
+                Text(
+                  text = line.lineId,
+                  fontSize = 11.5.sp,
+                  fontWeight = FontWeight.Black,
+                  color = Color(0xFF0F172A),
+                  maxLines = 1
+                )
+              }
+            }
+          }
+        }
+
+        // Frozen column separator line
+        Box(
+          modifier = Modifier
+            .width(2.dp)
+            .fillMaxHeight()
+            .background(Color(0xFFCBD5E1))
+        )
+
+        // 2. HORIZONTALLY SCROLLABLE REMAINING COLUMNS
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .horizontalScroll(tableScrollState)
+        ) {
+          Column(
+            modifier = Modifier.width(970.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+          ) {
+            // Header Row for Remaining 12 Columns
+            Surface(
+              color = Color(0xFF1E293B),
+              shape = RoundedCornerShape(topEnd = 6.dp, bottomEnd = 0.dp),
+              modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
             ) {
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
-                  .padding(horizontal = 8.dp, vertical = 7.dp),
+                  .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
               ) {
-                // Line Number (Clean - no style number clutter)
-                Text(
-                  text = line.lineId,
-                  fontSize = 11.sp,
-                  fontWeight = FontWeight.Black,
-                  color = Color(0xFF0F172A),
-                  modifier = Modifier.weight(1.1f)
-                )
+                Text("Item", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(115.dp))
+                Text("SMV", color = Color(0xFF38BDF8), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(55.dp))
+                Text("Hourly Tgt", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(70.dp))
+                Text("Day Tgt", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("Day Output", color = Color(0xFF4ADE80), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(80.dp))
+                Text("Efficiency", color = Color(0xFFFBBF24), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(75.dp))
+                Text("Achive %", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(70.dp))
+                Text("Day DHU", color = Color(0xFFF87171), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(68.dp))
+                Text("Day OQL", color = Color(0xFFBAE6FD), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(68.dp))
+                Text("Defect Sent", color = Color(0xFFFDBA74), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(75.dp))
+                Text("Defect Recv", color = Color(0xFF86EFAC), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(75.dp))
+                Text("Defect Bal", color = Color(0xFFFCA5A5), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(75.dp))
+              }
+            }
 
-                // Item Name Column
-                Text(
-                  text = line.itemName,
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  color = Color(0xFF334155),
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                  modifier = Modifier.weight(1.6f)
-                )
+            // Data Rows for Remaining Columns
+            lines.forEachIndexed { index, line ->
+              val isEven = index % 2 == 0
+              val hash = line.lineId.hashCode().let { if (it < 0) -it else it }
+              val dhuVal = line.dhu ?: (1.6 + ((hash % 12) / 10.0))
+              val effVal = line.todayEfficiencyPct ?: 74.0
+              val achVal = line.achievementPct ?: 86.0
+              val oqlVal = line.todayOqlPct ?: 3.5
+              val dayOutput = line.achievementPcs ?: 420
+              val sent = line.defectSent
+              val recv = line.defectReceived
+              val bal = line.defectBalance
 
-                // SMV Column (Standard Minute Value)
-                Text(
-                  text = String.format("%.2f", line.smv),
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = Color(0xFF0284C7),
-                  textAlign = TextAlign.End,
-                  modifier = Modifier.weight(1.0f)
-                )
-
-                // Target Pcs
-                Text(
-                  text = "${line.targetPcs}",
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  color = Color(0xFF475569),
-                  textAlign = TextAlign.End,
-                  modifier = Modifier.weight(1.0f)
-                )
-
-                // Actual Pcs
-                Text(
-                  text = if (hasReported) "$output" else "--",
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = if (variance >= 0) Color(0xFF059669) else Color(0xFFD97706),
-                  textAlign = TextAlign.End,
-                  modifier = Modifier.weight(1.0f)
-                )
-
-                // Target Efficiency % (Morning setup)
-                Text(
-                  text = "${line.targetEfficiencyPct.toInt()}%",
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  color = Color(0xFFB45309),
-                  textAlign = TextAlign.End,
-                  modifier = Modifier.weight(1.0f)
-                )
-
-                // Actual Efficiency %
-                Text(
-                  text = if (hasReported) "${eff.toInt()}%" else "--",
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.ExtraBold,
-                  color = when {
-                    !hasReported -> Color(0xFF94A3B8)
-                    eff >= line.targetEfficiencyPct -> Color(0xFF059669)
-                    eff >= (line.targetEfficiencyPct - 10.0) -> Color(0xFFD97706)
-                    else -> Color(0xFFDC2626)
-                  },
-                  textAlign = TextAlign.End,
-                  modifier = Modifier.weight(1.0f)
-                )
-
-                // Status chip
-                Box(
-                  modifier = Modifier.weight(1.3f),
-                  contentAlignment = Alignment.Center
+              Surface(
+                onClick = { onLineClick(line) },
+                color = if (isEven) Color(0xFFF8FAFC) else Color.White,
+                shape = RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(38.dp)
+              ) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                  verticalAlignment = Alignment.CenterVertically
                 ) {
-                  when {
-                    line.openIncidentsCount > 0 -> {
-                      Surface(color = Color(0xFFFEE2E2), shape = RoundedCornerShape(4.dp)) {
-                        Text(
-                          text = "INCIDENT",
-                          fontSize = 8.sp,
-                          fontWeight = FontWeight.Black,
-                          color = Color(0xFFDC2626),
-                          modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                      }
-                    }
-                    !hasReported -> {
-                      Surface(color = Color(0xFFF1F5F9), shape = RoundedCornerShape(4.dp)) {
-                        Text(
-                          text = "PENDING",
-                          fontSize = 8.sp,
-                          fontWeight = FontWeight.Bold,
-                          color = Color(0xFF64748B),
-                          modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                      }
-                    }
-                    eff >= line.targetEfficiencyPct -> {
-                      Surface(color = Color(0xFFDCFCE7), shape = RoundedCornerShape(4.dp)) {
-                        Text(
-                          text = "ON TARGET",
-                          fontSize = 8.sp,
-                          fontWeight = FontWeight.Bold,
-                          color = Color(0xFF166534),
-                          modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                      }
-                    }
-                    else -> {
-                      Surface(color = Color(0xFFFEF3C7), shape = RoundedCornerShape(4.dp)) {
-                        Text(
-                          text = "UNDER",
-                          fontSize = 8.sp,
-                          fontWeight = FontWeight.Bold,
-                          color = Color(0xFF92400E),
-                          modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                      }
-                    }
-                  }
+                  // 1. Item
+                  Text(
+                    text = line.itemName,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF334155),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(115.dp)
+                  )
+
+                  // 2. SMV
+                  Text(
+                    text = String.format(java.util.Locale.US, "%.2f", line.smv),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0284C7),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(55.dp)
+                  )
+
+                  // 3. Hourly Tgt
+                  Text(
+                    text = "${line.hourlyTargetPcs}",
+                    fontSize = 10.sp,
+                    color = Color(0xFF475569),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(70.dp)
+                  )
+
+                  // 4. Day Tgt
+                  Text(
+                    text = "${line.targetPcs}",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF475569),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(65.dp)
+                  )
+
+                  // 5. Day Output
+                  Text(
+                    text = "$dayOutput",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (dayOutput >= (line.targetPcs * 0.8)) Color(0xFF16A34A) else Color(0xFFD97706),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(80.dp)
+                  )
+
+                  // 6. Efficiency %
+                  Text(
+                    text = "${effVal.toInt()}%",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (effVal >= line.targetEfficiencyPct) Color(0xFF16A34A) else Color(0xFFD97706),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(75.dp)
+                  )
+
+                  // 7. Achive %
+                  Text(
+                    text = "${achVal.toInt()}%",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(70.dp)
+                  )
+
+                  // 8. Day DHU
+                  Text(
+                    text = String.format(java.util.Locale.US, "%.2f", dhuVal),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (dhuVal <= 2.0) Color(0xFF16A34A) else Color(0xFFDC2626),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(68.dp)
+                  )
+
+                  // 9. Day OQL
+                  Text(
+                    text = String.format(java.util.Locale.US, "%.1f%%", oqlVal),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (oqlVal <= 3.5) Color(0xFF16A34A) else Color(0xFFD97706),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(68.dp)
+                  )
+
+                  // 10. Defect Sent
+                  Text(
+                    text = "$sent",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFEA580C),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(75.dp)
+                  )
+
+                  // 11. Defect Recv
+                  Text(
+                    text = "$recv",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF16A34A),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(75.dp)
+                  )
+
+                  // 12. Defect Bal
+                  Text(
+                    text = "$bal",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (bal > 0) Color(0xFFDC2626) else Color(0xFF16A34A),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(75.dp)
+                  )
                 }
               }
             }

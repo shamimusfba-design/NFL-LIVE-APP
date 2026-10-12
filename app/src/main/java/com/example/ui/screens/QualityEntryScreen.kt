@@ -31,11 +31,16 @@ import com.example.ui.theme.*
 fun QualityEntryScreen(
   repository: NflRepository,
   onNavigateBack: () -> Unit,
-  onViewHistory: () -> Unit
+  onViewHistory: () -> Unit,
+  onNavigateToProduction: () -> Unit = {},
+  onNavigateToMonthlySetup: () -> Unit = {},
+  onNavigateToSetup: () -> Unit = {}
 ) {
   val repoFloor by repository.currentFloor.collectAsState()
   val repoAssignedLine by repository.assignedLine.collectAsState()
   val isOnline by repository.isOnline.collectAsState()
+  val currentUser by repository.currentUser.collectAsState()
+  val canQualityWrite = currentUser?.canQualityWrite ?: false
   val entries by repository.qualityEntries.collectAsState()
 
   var selectedFloor by remember { mutableStateOf(if (repoFloor == FloorScope.ALL) FloorScope.SEW_2 else repoFloor) }
@@ -55,6 +60,10 @@ fun QualityEntryScreen(
   var selectedStyle by remember { mutableStateOf("NFL-204") }
   var checkedGarmentsText by remember { mutableStateOf("150") }
   var defectiveGarmentsText by remember { mutableStateOf("5") }
+  var defectSentText by remember { mutableStateOf("14") }
+  var defectReceivedText by remember { mutableStateOf("12") }
+  var spotSentText by remember { mutableStateOf("8") }
+  var spotReceivedText by remember { mutableStateOf("7") }
 
   val lineSetup = remember(selectedLine) { repository.getLineSetup(selectedLine) }
 
@@ -111,6 +120,79 @@ fun QualityEntryScreen(
         .padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+      // Top Module Navigation Tabs
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .background(Color.White, RoundedCornerShape(10.dp))
+          .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+      ) {
+        Surface(
+          onClick = onNavigateToProduction,
+          shape = RoundedCornerShape(8.dp),
+          color = Color(0xFFF1F5F9),
+          modifier = Modifier.weight(1f)
+        ) {
+          Text(
+            text = "🧵 Production",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF475569),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(vertical = 7.dp),
+            maxLines = 1
+          )
+        }
+        Surface(
+          shape = RoundedCornerShape(8.dp),
+          color = Color(0xFF0F172A),
+          modifier = Modifier.weight(1f)
+        ) {
+          Text(
+            text = "🔍 Quality",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(vertical = 7.dp),
+            maxLines = 1
+          )
+        }
+        Surface(
+          onClick = onNavigateToMonthlySetup,
+          shape = RoundedCornerShape(8.dp),
+          color = Color(0xFFF1F5F9),
+          modifier = Modifier.weight(1f)
+        ) {
+          Text(
+            text = "📅 Monthly",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF475569),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(vertical = 7.dp),
+            maxLines = 1
+          )
+        }
+        Surface(
+          onClick = onNavigateToSetup,
+          shape = RoundedCornerShape(8.dp),
+          color = Color(0xFFF1F5F9),
+          modifier = Modifier.weight(1f)
+        ) {
+          Text(
+            text = "🌅 Targets",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF475569),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(vertical = 7.dp),
+            maxLines = 1
+          )
+        }
+      }
+
       // 1. Floor Selector Chips (Sew 1, Sew 2, Sew 3, Finishing)
       Card(
         modifier = Modifier.fillMaxWidth(),
@@ -129,7 +211,7 @@ fun QualityEntryScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
           ) {
-            listOf(FloorScope.SEW_1, FloorScope.SEW_2, FloorScope.SEW_3, FloorScope.FINISHING).forEach { floor ->
+            listOf(FloorScope.SEW_1, FloorScope.SEW_2, FloorScope.SEW_3).forEach { floor ->
               val isSelected = selectedFloor == floor
               Surface(
                 onClick = { selectedFloor = floor },
@@ -140,18 +222,38 @@ fun QualityEntryScreen(
               ) {
                 Text(
                   text = when (floor) {
-                    FloorScope.SEW_1 -> "Sew 1"
-                    FloorScope.SEW_2 -> "Sew 2"
-                    FloorScope.SEW_3 -> "Sew 3"
-                    FloorScope.FINISHING -> "Finish"
+                    FloorScope.SEW_1 -> "Sew-1"
+                    FloorScope.SEW_2 -> "Sew-2"
+                    FloorScope.SEW_3 -> "Sew-3"
                     else -> floor.displayName
                   },
-                  fontSize = 11.sp,
+                  fontSize = 11.5.sp,
                   fontWeight = FontWeight.Bold,
                   color = if (isSelected) Color.White else Color(0xFF334155),
                   textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                   modifier = Modifier.padding(vertical = 8.dp)
                 )
+              }
+            }
+          }
+
+          if (!canQualityWrite) {
+            Surface(
+              color = Color(0xFFFEF3C7),
+              shape = RoundedCornerShape(8.dp),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B)),
+              modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+              Row(
+                modifier = Modifier.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(18.dp))
+                Column {
+                  Text("View-Only Mode (কোয়ালিটি এন্ট্রি লক করা)", color = Color(0xFF92400E), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                  Text("You have read-only access. Only authorized QC Inspectors & Auditors can enter defect records. (Management has view-only access).", color = Color(0xFFB45309), fontSize = 10.sp)
+                }
               }
             }
           }
@@ -438,6 +540,252 @@ fun QualityEntryScreen(
             }
           }
 
+          // Sewing Defect Rectification Tracking (সুইং ডিফেক্ট আদান-প্রদান ও রেক্টিফিকেশন)
+          val liveSent = defectSentText.toIntOrNull() ?: 0
+          val liveRecv = defectReceivedText.toIntOrNull() ?: 0
+          val liveBal = (liveSent - liveRecv).coerceAtLeast(0)
+
+          Surface(
+            color = Color(0xFFF8FAFC),
+            shape = RoundedCornerShape(10.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Column(
+              modifier = Modifier.padding(12.dp),
+              verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Column {
+                  Text(
+                    text = "Sewing Defect Rectification (সুইং ডিফেক্ট ট্র্যাকিং)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                  )
+                  Text(
+                    text = "Hourly Sent to Line vs Received & Pending Balance",
+                    fontSize = 10.sp,
+                    color = Color(0xFF64748B)
+                  )
+                }
+
+                Surface(
+                  color = if (liveBal > 0) Color(0xFFFEE2E2) else Color(0xFFDCFCE7),
+                  shape = RoundedCornerShape(4.dp)
+                ) {
+                  Text(
+                    text = if (liveBal > 0) "Pending: $liveBal pcs" else "All Cleared",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (liveBal > 0) Color(0xFFDC2626) else Color(0xFF166534),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
+                  )
+                }
+              }
+
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                // 1. Defect Sent
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  Text(
+                    text = "Defect Sent (সেন্ট)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFEA580C)
+                  )
+                  OutlinedTextField(
+                    value = defectSentText,
+                    onValueChange = { if (it.all { ch -> ch.isDigit() }) defectSentText = it },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = LocalTextStyle.current.copy(
+                      fontSize = 16.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color(0xFFEA580C)
+                    ),
+                    shape = RoundedCornerShape(6.dp)
+                  )
+                }
+
+                // 2. Defect Received
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  Text(
+                    text = "Defect Recv (রিসিভ)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF16A34A)
+                  )
+                  OutlinedTextField(
+                    value = defectReceivedText,
+                    onValueChange = { if (it.all { ch -> ch.isDigit() }) defectReceivedText = it },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = LocalTextStyle.current.copy(
+                      fontSize = 16.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color(0xFF16A34A)
+                    ),
+                    shape = RoundedCornerShape(6.dp)
+                  )
+                }
+
+                // 3. Defect Balance (Calculated read-only)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  Text(
+                    text = "Balance (ব্যালেন্স)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (liveBal > 0) Color(0xFFDC2626) else Color(0xFF16A34A)
+                  )
+                  Surface(
+                    color = if (liveBal > 0) Color(0xFFFEF2F2) else Color(0xFFF0FDF4),
+                    shape = RoundedCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (liveBal > 0) Color(0xFFFECACA) else Color(0xFFBBF7D0)),
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .height(56.dp)
+                  ) {
+                    Box(contentAlignment = Alignment.Center) {
+                      Text(
+                        text = "$liveBal",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        color = if (liveBal > 0) Color(0xFFDC2626) else Color(0xFF16A34A)
+                      )
+                    }
+                  }
+                }
+              }
+
+              // Spot Defect Rectification Tracking (স্পট / দাগ ডিফেক্ট আদান-প্রদান ও রেক্টিফিকেশন)
+              val liveSpotSent = spotSentText.toIntOrNull() ?: 0
+              val liveSpotRecv = spotReceivedText.toIntOrNull() ?: 0
+              val liveSpotBal = (liveSpotSent - liveSpotRecv).coerceAtLeast(0)
+
+              Divider(color = Color(0xFFE2E8F0), thickness = 1.dp)
+
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Column {
+                  Text(
+                    text = "Spot Defect Rectification (স্পট / দাগ ডিফেক্ট ট্র্যাকিং)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF7E22CE)
+                  )
+                  Text(
+                    text = "Hourly Sent to Spot Table vs Clean Received & Pending",
+                    fontSize = 10.sp,
+                    color = Color(0xFF64748B)
+                  )
+                }
+
+                Surface(
+                  color = if (liveSpotBal > 0) Color(0xFFFEF2F2) else Color(0xFFF0FDF4),
+                  shape = RoundedCornerShape(4.dp)
+                ) {
+                  Text(
+                    text = if (liveSpotBal > 0) "Pending Spot: $liveSpotBal" else "Spot Cleared",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (liveSpotBal > 0) Color(0xFFDC2626) else Color(0xFF166534),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
+                  )
+                }
+              }
+
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                // 1. Spot Sent
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  Text(
+                    text = "Spot Sent (স্পট সেন্ট)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF7E22CE)
+                  )
+                  OutlinedTextField(
+                    value = spotSentText,
+                    onValueChange = { if (it.all { ch -> ch.isDigit() }) spotSentText = it },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = LocalTextStyle.current.copy(
+                      fontSize = 16.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color(0xFF7E22CE)
+                    ),
+                    shape = RoundedCornerShape(6.dp)
+                  )
+                }
+
+                // 2. Spot Received
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  Text(
+                    text = "Spot Recv (দাগ মুক্ত)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF0D9488)
+                  )
+                  OutlinedTextField(
+                    value = spotReceivedText,
+                    onValueChange = { if (it.all { ch -> ch.isDigit() }) spotReceivedText = it },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = LocalTextStyle.current.copy(
+                      fontSize = 16.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color(0xFF0D9488)
+                    ),
+                    shape = RoundedCornerShape(6.dp)
+                  )
+                }
+
+                // 3. Spot Balance
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  Text(
+                    text = "Spot Bal (বকেয়া)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (liveSpotBal > 0) Color(0xFFDC2626) else Color(0xFF0D9488)
+                  )
+                  Surface(
+                    color = if (liveSpotBal > 0) Color(0xFFFEF2F2) else Color(0xFFF0FDF4),
+                    shape = RoundedCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (liveSpotBal > 0) Color(0xFFFECACA) else Color(0xFFCCFBF1)),
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .height(56.dp)
+                  ) {
+                    Box(contentAlignment = Alignment.Center) {
+                      Text(
+                        text = "$liveSpotBal",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        color = if (liveSpotBal > 0) Color(0xFFDC2626) else Color(0xFF0D9488)
+                      )
+                    }
+                  }
+                }
+              }
+            }
+          }
+
           // Defects Section
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -699,6 +1047,14 @@ fun QualityEntryScreen(
                 return@Button
               }
 
+              val sSent = defectSentText.toIntOrNull() ?: 0
+              val sRecv = defectReceivedText.toIntOrNull() ?: 0
+              val sBal = (sSent - sRecv).coerceAtLeast(0)
+
+              val spotS = spotSentText.toIntOrNull() ?: 0
+              val spotR = spotReceivedText.toIntOrNull() ?: 0
+              val spotB = (spotS - spotR).coerceAtLeast(0)
+
               val record = QualityRecord(
                 lineId = selectedLine,
                 floor = selectedFloor.apiValue,
@@ -709,23 +1065,32 @@ fun QualityEntryScreen(
                 defectiveGarments = defective,
                 defects = defectRows,
                 remarks = remarksText,
+                defectSent = sSent,
+                defectReceived = sRecv,
+                defectBalance = sBal,
+                spotSent = spotS,
+                spotReceived = spotR,
+                spotBalance = spotB,
                 isConfirmedZero = (defective == 0)
               )
 
               repository.submitQuality(record)
               val oqlVal = (defective.toDouble() / checked.toDouble()) * 100.0
-              submissionSuccessMsg = "Quality submitted for Line $selectedLine! OQL: ${"%.2f".format(oqlVal)}% (Defects: $totalDefects)"
+              submissionSuccessMsg = "Quality submitted for Line $selectedLine! OQL: ${"%.2f".format(oqlVal)}% • Sewing: $sSent/$sRecv (Bal: $sBal) • Spot: $spotS/$spotR (Bal: $spotB)"
               validationError = null
             },
             modifier = Modifier
               .fillMaxWidth()
               .height(48.dp)
               .testTag("submit_quality_button"),
+            enabled = canQualityWrite,
             shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = NflGreen)
+            colors = ButtonDefaults.buttonColors(
+              containerColor = if (canQualityWrite) NflGreen else Color(0xFF94A3B8)
+            )
           ) {
             Text(
-              text = "SUBMIT QUALITY",
+              text = if (canQualityWrite) "SUBMIT QUALITY" else "🔒 ENTRY LOCKED (VIEW ONLY)",
               fontSize = 14.sp,
               fontWeight = FontWeight.Bold,
               color = Color.White

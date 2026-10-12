@@ -124,7 +124,7 @@ fun TvDashboardScreen(
 
           Column {
             Text(
-              text = "NFL LIVE — Northern Fashion Limited Live",
+              text = "NFL LIVE — Northern Fashions Ltd.",
               color = Color.White,
               fontSize = 14.sp,
               fontWeight = FontWeight.Black

@@ -45,7 +45,8 @@ enum class AppScreen {
   LINE_DEEP_DIVE,
   TV_DASHBOARD,
   HISTORY_SYNC,
-  SETTINGS
+  SETTINGS,
+  MONTHLY_BREAKDOWN
 }
 
 class MainActivity : ComponentActivity() {
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
 
         var currentScreen by remember { mutableStateOf(if (currentUser == null) AppScreen.LOGIN else AppScreen.HOME) }
         var selectedDeepDiveLineId by remember { mutableStateOf("K1") }
+        var selectedMonthlyMetric by remember { mutableStateOf(com.example.model.MonthlyMetricType.EFFICIENCY) }
 
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val scope = rememberCoroutineScope()
@@ -141,9 +143,15 @@ class MainActivity : ComponentActivity() {
                             fontWeight = FontWeight.Black
                           )
                           Text(
-                            text = "Northern Fashion Limited Live",
+                            text = "Northern Fashions Ltd.",
                             color = Color(0xFF94A3B8),
                             fontSize = 10.sp
+                          )
+                          Text(
+                            text = "Dev: Shamim • IPE & Planning",
+                            color = Color(0xFF38BDF8),
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold
                           )
                         }
                       }
@@ -182,11 +190,27 @@ class MainActivity : ComponentActivity() {
                                 fontSize = 12.sp,
                                 maxLines = 1
                               )
-                              Text(
-                                text = "Role: ${currentRole.displayName}",
-                                color = Color(0xFF38BDF8),
-                                fontSize = 10.sp
-                              )
+                              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                  text = "Role: ${currentRole.displayName}",
+                                  color = Color(0xFF38BDF8),
+                                  fontSize = 10.sp
+                                )
+                                if (currentUser?.isViewOnly == true) {
+                                  Surface(
+                                    color = Color(0xFFFEF3C7),
+                                    shape = RoundedCornerShape(3.dp)
+                                  ) {
+                                    Text(
+                                      text = "VIEW ONLY",
+                                      color = Color(0xFFB45309),
+                                      fontSize = 7.5.sp,
+                                      fontWeight = FontWeight.Bold,
+                                      modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                                    )
+                                  }
+                                }
+                              }
                             }
                           }
 
@@ -334,7 +358,7 @@ class MainActivity : ComponentActivity() {
                   )
 
                   NavigationDrawerItem(
-                    label = { Text("📅 Monthly Target Setup") },
+                    label = { Text("📅 Monthly Data Entry (মান্থলি ডাটা এন্ট্রি)") },
                     selected = currentScreen == AppScreen.MONTHLY_SETUP,
                     onClick = {
                       currentScreen = AppScreen.MONTHLY_SETUP
@@ -406,8 +430,37 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
                   )
 
-                  Spacer(modifier = Modifier.weight(1f))
+                  Spacer(modifier = Modifier.height(16.dp))
                   Divider(color = Color(0xFF334155))
+
+                  // Developer Credit Banner in Drawer
+                  Surface(
+                    color = Color(0xFF0F172A),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(horizontal = 12.dp, vertical = 6.dp)
+                  ) {
+                    Column(
+                      modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                      horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                      Text(
+                        text = "This app is developed by Shamim",
+                        color = Color(0xFF38BDF8),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold
+                      )
+                      Spacer(Modifier.height(2.dp))
+                      Text(
+                        text = "IPE and Planning",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                      )
+                    }
+                  }
 
                   // Logout Action
                   NavigationDrawerItem(
@@ -535,7 +588,20 @@ class MainActivity : ComponentActivity() {
                     },
                     onNavigateToMonthlySetup = { currentScreen = AppScreen.MONTHLY_SETUP },
                     onNavigateToAdminUsers = { currentScreen = AppScreen.ADMIN_USERS },
+                    onNavigateToMonthlyBreakdown = { metric ->
+                      selectedMonthlyMetric = metric
+                      currentScreen = AppScreen.MONTHLY_BREAKDOWN
+                    },
                     onNavigateToLogin = { currentScreen = AppScreen.LOGIN }
+                  )
+                  AppScreen.MONTHLY_BREAKDOWN -> MonthlyBreakdownScreen(
+                    repository = repository,
+                    initialMetric = selectedMonthlyMetric,
+                    onNavigateBack = { currentScreen = AppScreen.HOME },
+                    onNavigateToLine = { lineId ->
+                      selectedDeepDiveLineId = lineId
+                      currentScreen = AppScreen.LINE_DEEP_DIVE
+                    }
                   )
                   AppScreen.LINE_DEEP_DIVE -> LineDeepDiveScreen(
                     repository = repository,
@@ -557,12 +623,18 @@ class MainActivity : ComponentActivity() {
                   AppScreen.PRODUCTION_ENTRY -> ProductionEntryScreen(
                     repository = repository,
                     onNavigateBack = { currentScreen = AppScreen.HOME },
-                    onViewHistory = { currentScreen = AppScreen.HISTORY_SYNC }
+                    onViewHistory = { currentScreen = AppScreen.HISTORY_SYNC },
+                    onNavigateToQuality = { currentScreen = AppScreen.QUALITY_ENTRY },
+                    onNavigateToMonthlySetup = { currentScreen = AppScreen.MONTHLY_SETUP },
+                    onNavigateToSetup = { currentScreen = AppScreen.SUPERVISOR_SETUP }
                   )
                   AppScreen.QUALITY_ENTRY -> QualityEntryScreen(
                     repository = repository,
                     onNavigateBack = { currentScreen = AppScreen.HOME },
-                    onViewHistory = { currentScreen = AppScreen.HISTORY_SYNC }
+                    onViewHistory = { currentScreen = AppScreen.HISTORY_SYNC },
+                    onNavigateToProduction = { currentScreen = AppScreen.PRODUCTION_ENTRY },
+                    onNavigateToMonthlySetup = { currentScreen = AppScreen.MONTHLY_SETUP },
+                    onNavigateToSetup = { currentScreen = AppScreen.SUPERVISOR_SETUP }
                   )
                   AppScreen.NPT_SUPERVISOR -> NptSupervisorScreen(
                     repository = repository,

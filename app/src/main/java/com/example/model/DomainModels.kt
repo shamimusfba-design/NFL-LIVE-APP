@@ -9,9 +9,9 @@ enum class SyncStatus {
 }
 
 enum class FloorScope(val displayName: String, val apiValue: String) {
-  SEW_1("Sew 1", "Sew 1"),
-  SEW_2("Sew 2", "Sew 2"),
-  SEW_3("Sew 3", "Sew 3"),
+  SEW_1("Sew-1", "Sew 1"),
+  SEW_2("Sew-2", "Sew 2"),
+  SEW_3("Sew-3", "Sew 3"),
   FINISHING("Finishing", "Finishing"),
   ALL("All", "All")
 }
@@ -21,6 +21,12 @@ enum class PeriodScope(val displayName: String) {
   TODAY("Today"),
   WEEK("Weekly"),
   MONTH("Monthly")
+}
+
+enum class MonthlyMetricType(val displayName: String, val banglaName: String) {
+  EFFICIENCY("Monthly Efficiency", "মান্থলি এফিসিয়েন্সি"),
+  DHU("Monthly DHU", "মান্থলি ডিএইচইউ"),
+  OQL("Monthly OQL", "মান্থলি ওকেএল")
 }
 
 enum class UserRole(val displayName: String, val group: String) {
@@ -37,6 +43,19 @@ enum class UserRole(val displayName: String, val group: String) {
   MANAGEMENT_VIEW("Management / View-Only", "Executive")
 }
 
+enum class AppFunctionCategory(val displayName: String, val banglaName: String) {
+  DATA_ENTRY("Data Entry Functions", "ডাটা এন্ট্রি ফাংশনসমূহ"),
+  VISUAL_REPORT("Visual & Reporting Functions", "ভিজ্যুয়াল ও রিপোর্ট ফাংশনসমূহ")
+}
+
+data class AppFeaturePermission(
+  val key: String,
+  val englishName: String,
+  val banglaName: String,
+  val category: AppFunctionCategory,
+  val description: String
+)
+
 data class UserAccount(
   val id: String, // username / ID
   val name: String,
@@ -44,18 +63,43 @@ data class UserAccount(
   val role: UserRole = UserRole.SUPERVISOR,
   val floor: FloorScope = FloorScope.SEW_2,
   val assignedLine: String = "K1",
+  val isAdmin: Boolean = false,
+
+  // 1. VISUAL / VIEW PERMISSIONS (কে দেখতে পারবে)
+  val canViewDashboard: Boolean = true,
+  val canViewTvDashboard: Boolean = true,
+  val canViewMonthlyEfficiency: Boolean = true,
+  val canViewMonthlyDhu: Boolean = true,
+  val canViewMonthlyOql: Boolean = true,
+  val canViewLineDeepDive: Boolean = true,
+  val canViewAuditLogs: Boolean = true,
+  val canExportReports: Boolean = true,
+
+  // 2. DATA ENTRY PERMISSIONS (কে এন্ট্রি দিতে পারবে)
+  val canProductionWrite: Boolean = false,
+  val canFinishingWrite: Boolean = false,
+  val canQualityWrite: Boolean = false,
+  val canOqlWrite: Boolean = false,
+  val canNptWrite: Boolean = false,
+  val canMorningTargetWrite: Boolean = false,
+  val canMonthlyTargetWrite: Boolean = false,
+  val canTargetRevisionWrite: Boolean = false,
+
+  // Backward compatibility flags
   val canProductionRead: Boolean = true,
-  val canProductionWrite: Boolean = true,
   val canQualityRead: Boolean = true,
-  val canQualityWrite: Boolean = true,
   val canNptRead: Boolean = true,
-  val canNptWrite: Boolean = true,
   val canMorningTargetRead: Boolean = true,
-  val canMorningTargetWrite: Boolean = true,
-  val canMonthlyTargetRead: Boolean = true,
-  val canMonthlyTargetWrite: Boolean = true,
-  val isAdmin: Boolean = false
-)
+  val canMonthlyTargetRead: Boolean = true
+) {
+  val hasAnyWritePermission: Boolean
+    get() = canProductionWrite || canFinishingWrite || canQualityWrite ||
+        canOqlWrite || canNptWrite || canMorningTargetWrite ||
+        canMonthlyTargetWrite || canTargetRevisionWrite || isAdmin
+
+  val isViewOnly: Boolean
+    get() = !hasAnyWritePermission
+}
 
 data class LineInfo(
   val id: String,
@@ -113,6 +157,12 @@ data class QualityRecord(
   val defects: List<DefectItem> = emptyList(),
   val totalDefects: Int = defects.sumOf { it.count },
   val remarks: String = "",
+  val defectSent: Int = 0,
+  val defectReceived: Int = 0,
+  val defectBalance: Int = 0,
+  val spotSent: Int = 0,
+  val spotReceived: Int = 0,
+  val spotBalance: Int = 0,
   val timestamp: Long = System.currentTimeMillis(),
   val syncStatus: SyncStatus = SyncStatus.SYNCED,
   val revision: Int = 1,
@@ -215,7 +265,8 @@ data class HourlyProductionRow(
   val totalTarget: Int,
   val totalAchieve: Int,
   val efficiencyPct: Double,
-  val achievePct: Double
+  val achievePct: Double,
+  val oeePct: Double = 0.0
 )
 
 data class HourlyQualityRow(
@@ -249,6 +300,7 @@ data class LinePerformancePoint(
   val smv: Double = 14.50,
   val targetPcs: Int,
   val targetDuePcs: Int = targetPcs,
+  val hourlyTargetPcs: Int = (targetPcs / 8).coerceAtLeast(1),
   val targetEfficiencyPct: Double = 75.0,
   val achievementPcs: Int? = null, // null means "Not reported"!
   val isConfirmedZero: Boolean = false,
@@ -258,14 +310,23 @@ data class LinePerformancePoint(
   val todayOqlPct: Double? = null,
   val monthlyOqlPct: Double = 3.8,
   val dhu: Double? = null,
+  val monthlyDhuPct: Double = 1.35,
   val reportingStatus: String = "Complete", // "Complete", "Not reported", "In Progress"
-  val openIncidentsCount: Int = 0
+  val openIncidentsCount: Int = 0,
+  val defectSent: Int = 0,
+  val defectReceived: Int = 0,
+  val defectBalance: Int = 0,
+  val spotSent: Int = 0,
+  val spotReceived: Int = 0,
+  val spotBalance: Int = 0
 )
 
 data class DefectSummary(
   val defectType: String,
   val count: Int,
-  val dhu: Double = 0.35
+  val dhu: Double = 0.35,
+  val checkedGarments: Int = 1200,
+  val percentage: Double = 0.0
 )
 
 data class LineDhuSummary(
@@ -275,8 +336,24 @@ data class LineDhuSummary(
 
 data class DailyQaTrend(
   val dateLabel: String,
-  val bsOqlPct: Double,
-  val nflAqcPct: Double
+  val dayName: String = "",
+  val bsOqlPct: Double = 3.5,
+  val nflAqcPct: Double = 5.0,
+  val efficiencyPct: Double = 68.0,
+  val targetEfficiencyPct: Double = 75.0,
+  val dhu: Double = 1.25,
+  val targetDhu: Double = 1.50,
+  val outputPcs: Int = 3450,
+  val targetPcs: Int = 4200
+)
+
+data class NptCategorySlice(
+  val categoryName: String,
+  val minutes: Int,
+  val count: Int,
+  val percentage: Double,
+  val impactLevel: String = "HIGH",
+  val colorHex: Long = 0xFFEF4444
 )
 
 data class FloorKpiSummary(
@@ -293,7 +370,13 @@ data class FloorKpiSummary(
   val bsQaOql: Double = 5.00,
   val friPassRate: Double = 100.0,
   val reportingCoveragePct: Int = 95,
-  val openIncidentsCount: Int = 0
+  val openIncidentsCount: Int = 0,
+  val totalDefectSent: Int = 0,
+  val totalDefectReceived: Int = 0,
+  val totalDefectBalance: Int = 0,
+  val totalSpotSent: Int = 0,
+  val totalSpotReceived: Int = 0,
+  val totalSpotBalance: Int = 0
 )
 
 data class TvDashboardData(
@@ -304,6 +387,7 @@ data class TvDashboardData(
   val topDefects: List<DefectSummary> = emptyList(),
   val highestDhuLines: List<LineDhuSummary> = emptyList(),
   val weeklyQaTrend: List<DailyQaTrend> = emptyList(),
+  val nptBreakdown: List<NptCategorySlice> = emptyList(),
   val activeIncidents: List<IncidentItem> = emptyList(),
   val lastDataUpdate: String = "10:24 AM",
   val lastRefreshTime: String = "18:49",

@@ -1,10 +1,12 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -18,9 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.NflRepository
+import com.example.model.AppFunctionCategory
 import com.example.model.FloorScope
 import com.example.model.UserAccount
 import com.example.model.UserRole
@@ -33,35 +37,75 @@ fun AdminUsersScreen(
   onNavigateBack: () -> Unit
 ) {
   val users by repository.users.collectAsState()
-  var showAddUserDialog by remember { mutableStateOf(false) }
-  var editingUser by remember { mutableStateOf<UserAccount?>(null) }
+  val currentUser by repository.currentUser.collectAsState()
 
-  // New / Edit User Form State
+  // Selected tab: 0 = Function Access Matrix (Role-based), 1 = User Accounts & Assignment
+  var selectedTab by remember { mutableStateOf(0) }
+
+  // State for Role Access Matrix
+  var matrixRole by remember { mutableStateOf(UserRole.MANAGEMENT_VIEW) }
+  val targetRoleUsers = remember(users, matrixRole) { users.filter { it.role == matrixRole && !it.isAdmin } }
+  val sampleUserForRole = targetRoleUsers.firstOrNull() ?: users.firstOrNull { it.role == matrixRole }
+
+  var roleCanViewDashboard by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canViewDashboard ?: true) }
+  var roleCanViewTvDashboard by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canViewTvDashboard ?: true) }
+  var roleCanViewMonthlyEff by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canViewMonthlyEfficiency ?: true) }
+  var roleCanViewMonthlyDhu by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canViewMonthlyDhu ?: true) }
+  var roleCanViewMonthlyOql by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canViewMonthlyOql ?: true) }
+  var roleCanViewDeepDive by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canViewLineDeepDive ?: true) }
+  var roleCanViewAuditLogs by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canViewAuditLogs ?: true) }
+  var roleCanExportReports by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canExportReports ?: true) }
+
+  var roleCanProductionWrite by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canProductionWrite ?: false) }
+  var roleCanFinishingWrite by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canFinishingWrite ?: false) }
+  var roleCanQualityWrite by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canQualityWrite ?: false) }
+  var roleCanOqlWrite by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canOqlWrite ?: false) }
+  var roleCanNptWrite by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canNptWrite ?: false) }
+  var roleCanMorningTargetWrite by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canMorningTargetWrite ?: false) }
+  var roleCanMonthlyTargetWrite by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canMonthlyTargetWrite ?: false) }
+  var roleCanTargetRevisionWrite by remember(matrixRole, sampleUserForRole) { mutableStateOf(sampleUserForRole?.canTargetRevisionWrite ?: false) }
+
+  var roleSaveSuccessMessage by remember { mutableStateOf<String?>(null) }
+
+  // State for User Account Dialog (Add / Edit)
+  var showUserDialog by remember { mutableStateOf(false) }
+  var editingUser by remember { mutableStateOf<UserAccount?>(null) }
+  var userSearchQuery by remember { mutableStateOf("") }
+
+  // Form State
   var formId by remember { mutableStateOf("") }
   var formName by remember { mutableStateOf("") }
-  var formPassword by remember { mutableStateOf("1234") }
+  var formPassword by remember { mutableStateOf("123") }
   var formRole by remember { mutableStateOf(UserRole.SUPERVISOR) }
   var formFloor by remember { mutableStateOf(FloorScope.SEW_2) }
   var formLine by remember { mutableStateOf("K1") }
 
-  var permProdRead by remember { mutableStateOf(true) }
-  var permProdWrite by remember { mutableStateOf(true) }
-  var permQualityRead by remember { mutableStateOf(true) }
-  var permQualityWrite by remember { mutableStateOf(true) }
-  var permNptRead by remember { mutableStateOf(true) }
-  var permNptWrite by remember { mutableStateOf(true) }
-  var permMorningRead by remember { mutableStateOf(true) }
-  var permMorningWrite by remember { mutableStateOf(true) }
-  var permMonthlyRead by remember { mutableStateOf(true) }
-  var permMonthlyWrite by remember { mutableStateOf(true) }
+  // Individual Form Toggles
+  var formViewDashboard by remember { mutableStateOf(true) }
+  var formViewTv by remember { mutableStateOf(true) }
+  var formViewMonthlyEff by remember { mutableStateOf(true) }
+  var formViewMonthlyDhu by remember { mutableStateOf(true) }
+  var formViewMonthlyOql by remember { mutableStateOf(true) }
+  var formViewDeepDive by remember { mutableStateOf(true) }
+  var formViewAuditLogs by remember { mutableStateOf(false) }
+  var formExportReports by remember { mutableStateOf(false) }
+
+  var formProdWrite by remember { mutableStateOf(false) }
+  var formFinishingWrite by remember { mutableStateOf(false) }
+  var formQualityWrite by remember { mutableStateOf(false) }
+  var formOqlWrite by remember { mutableStateOf(false) }
+  var formNptWrite by remember { mutableStateOf(false) }
+  var formMorningTargetWrite by remember { mutableStateOf(false) }
+  var formMonthlyTargetWrite by remember { mutableStateOf(false) }
+  var formTargetRevisionWrite by remember { mutableStateOf(false) }
 
   Scaffold(
     topBar = {
       TopAppBar(
         title = {
           Column {
-            Text("User & Access Control", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-            Text("Admin Module: User Assignment & Permissions", fontSize = 10.sp, color = Color(0xFFBAE6FD))
+            Text("Admin Access Control Panel", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+            Text("Northern Fashions Ltd. • Role & Function Permissions", fontSize = 10.sp, color = Color(0xFFBAE6FD))
           }
         },
         navigationIcon = {
@@ -71,13 +115,30 @@ fun AdminUsersScreen(
         },
         actions = {
           IconButton(onClick = {
+            editingUser = null
             formId = ""
             formName = ""
             formPassword = "123"
-            formRole = UserRole.SUPERVISOR
+            formRole = UserRole.PRODUCTION_REPORTER
             formFloor = FloorScope.SEW_2
             formLine = "K1"
-            showAddUserDialog = true
+            formViewDashboard = true
+            formViewTv = false
+            formViewMonthlyEff = true
+            formViewMonthlyDhu = false
+            formViewMonthlyOql = false
+            formViewDeepDive = true
+            formViewAuditLogs = false
+            formExportReports = false
+            formProdWrite = true
+            formFinishingWrite = true
+            formQualityWrite = false
+            formOqlWrite = false
+            formNptWrite = false
+            formMorningTargetWrite = false
+            formMonthlyTargetWrite = false
+            formTargetRevisionWrite = false
+            showUserDialog = true
           }) {
             Icon(Icons.Default.PersonAdd, contentDescription = "Add User", tint = Color(0xFFFDE047))
           }
@@ -85,141 +146,641 @@ fun AdminUsersScreen(
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
       )
     },
-    floatingActionButton = {
-      FloatingActionButton(
-        onClick = {
-          formId = ""
-          formName = ""
-          formPassword = "123"
-          formRole = UserRole.SUPERVISOR
-          formFloor = FloorScope.SEW_2
-          formLine = "K1"
-          showAddUserDialog = true
-        },
-        containerColor = NflRoyalBlue,
-        contentColor = Color.White
-      ) {
-        Icon(Icons.Default.Add, contentDescription = "Create User")
-      }
-    },
     containerColor = Color(0xFFF8FAFC)
   ) { paddingValues ->
-    LazyColumn(
+    Column(
       modifier = Modifier
         .fillMaxSize()
         .padding(paddingValues)
-        .padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-      item {
-        Card(
-          shape = RoundedCornerShape(10.dp),
-          colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
-          modifier = Modifier.fillMaxWidth()
+      // 1. Prominent Developer Credit Banner
+      Surface(
+        color = Color(0xFF0F172A),
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 8.dp)
         ) {
           Row(
-            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
           ) {
-            Icon(Icons.Default.Shield, contentDescription = null, tint = Color(0xFF1D4ED8))
+            Surface(
+              color = Color(0xFF0284C7),
+              shape = RoundedCornerShape(6.dp),
+              modifier = Modifier.size(24.dp)
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+              }
+            }
             Column {
-              Text("Task & Line Wise Access Assignment", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E3A8A))
-              Text("Assign users to specific floors/lines and configure module Read & Write permissions.", fontSize = 10.sp, color = Color(0xFF475569))
+              Text(
+                text = "This app is developed by Shamim",
+                color = Color(0xFF38BDF8),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+              )
+              Text(
+                text = "IPE and Planning • Northern Fashions Ltd.",
+                color = Color(0xFF94A3B8),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
+              )
             }
           }
         }
       }
 
-      items(users, key = { it.id }) { user ->
-        Card(
-          shape = RoundedCornerShape(10.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          elevation = CardDefaults.cardElevation(2.dp),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Column {
-                Text(user.name, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
-                Text("User ID: ${user.id} • Password: ${user.password}", fontSize = 11.sp, color = Color(0xFF64748B))
-              }
-              Surface(
-                color = when (user.role) {
-                  UserRole.ADMIN -> Color(0xFFFEE2E2)
-                  UserRole.SUPERVISOR -> Color(0xFFDBEAFE)
-                  UserRole.MECHANIC -> Color(0xFFFEF3C7)
-                  else -> Color(0xFFDCFCE7)
-                },
-                shape = RoundedCornerShape(4.dp)
+      // 2. Navigation Tab Bar (Matrix vs Users)
+      TabRow(
+        selectedTabIndex = selectedTab,
+        containerColor = Color(0xFF1E293B),
+        contentColor = Color.White
+      ) {
+        Tab(
+          selected = selectedTab == 0,
+          onClick = { selectedTab = 0 },
+          text = { Text("Function Access Matrix\n(রোল পারমিশন)", fontSize = 11.5.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) }
+        )
+        Tab(
+          selected = selectedTab == 1,
+          onClick = { selectedTab = 1 },
+          text = { Text("User Accounts\n(ইউজার তালিকা ও লাইন)", fontSize = 11.5.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) }
+        )
+      }
+
+      // 3. Tab Content
+      when (selectedTab) {
+        0 -> {
+          // TAB 0: FUNCTION ACCESS MATRIX
+          LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+          ) {
+            // Explanation Header
+            item {
+              Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE))
               ) {
-                Text(
-                  text = user.role.displayName,
-                  fontSize = 9.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = when (user.role) {
-                    UserRole.ADMIN -> Color(0xFF991B1B)
-                    UserRole.SUPERVISOR -> Color(0xFF1E40AF)
-                    UserRole.MECHANIC -> Color(0xFF92400E)
-                    else -> Color(0xFF166534)
-                  },
-                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
+                Row(
+                  modifier = Modifier.padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                  Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(24.dp))
+                  Column {
+                    Text(
+                      text = "সেকশন ভিত্তিক অ্যাক্সেস কন্ট্রোল (View vs Data Entry)",
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 12.sp,
+                      color = Color(0xFF1E3A8A)
+                    )
+                    Text(
+                      text = "এখানে অ্যাডমিন নির্ধারণ করবেন কোন রোল দেখতে পারবে (View) এবং কোন রোল এন্ট্রি দিতে পারবে (Data Entry)। ম্যানেজমেন্টের ক্ষেত্রে ডাটা এন্ট্রি সম্পূর্ণ বন্ধ রাখা হয়েছে।",
+                      fontSize = 10.5.sp,
+                      color = Color(0xFF334155),
+                      lineHeight = 14.sp
+                    )
+                  }
+                }
               }
             }
 
-            Text(
-              text = "Assigned Scope: ${user.floor.displayName} • Line: ${user.assignedLine}",
-              fontSize = 11.sp,
-              fontWeight = FontWeight.SemiBold,
-              color = Color(0xFF334155)
-            )
-
-            // Permissions badges
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-              PermissionBadge("Prod", user.canProductionWrite)
-              PermissionBadge("QC", user.canQualityWrite)
-              PermissionBadge("NPT", user.canNptWrite)
-              PermissionBadge("Morning", user.canMorningTargetWrite)
-              PermissionBadge("Monthly", user.canMonthlyTargetWrite)
-            }
-
-            if (!user.isAdmin) {
+            // Quick Role Enforce Buttons
+            item {
               Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
               ) {
-                TextButton(onClick = {
-                  editingUser = user
-                  formId = user.id
-                  formName = user.name
-                  formPassword = user.password
-                  formRole = user.role
-                  formFloor = user.floor
-                  formLine = user.assignedLine
-                  permProdRead = user.canProductionRead
-                  permProdWrite = user.canProductionWrite
-                  permQualityRead = user.canQualityRead
-                  permQualityWrite = user.canQualityWrite
-                  permNptRead = user.canNptRead
-                  permNptWrite = user.canNptWrite
-                  permMorningRead = user.canMorningTargetRead
-                  permMorningWrite = user.canMorningTargetWrite
-                  permMonthlyRead = user.canMonthlyTargetRead
-                  permMonthlyWrite = user.canMonthlyTargetWrite
-                  showAddUserDialog = true
-                }) {
-                  Text("Edit", fontSize = 11.sp)
+                Button(
+                  onClick = {
+                    repository.applyManagementStrictPolicy()
+                    roleSaveSuccessMessage = "ম্যানেজমেন্টের জন্য View-Only পলিসি সফলভাবে প্রয়োগ করা হয়েছে (ডাটা এন্ট্রি বন্ধ)।"
+                    // Update current states if viewing management
+                    if (matrixRole in setOf(UserRole.MANAGEMENT_VIEW, UserRole.PRODUCTION_MANAGER, UserRole.QUALITY_MANAGER)) {
+                      roleCanProductionWrite = false
+                      roleCanFinishingWrite = false
+                      roleCanQualityWrite = false
+                      roleCanOqlWrite = false
+                      roleCanNptWrite = false
+                      roleCanMorningTargetWrite = false
+                      roleCanMonthlyTargetWrite = false
+                      roleCanTargetRevisionWrite = false
+                    }
+                  },
+                  colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                  shape = RoundedCornerShape(8.dp),
+                  modifier = Modifier.weight(1f)
+                ) {
+                  Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(16.dp))
+                  Spacer(Modifier.width(6.dp))
+                  Text("ম্যানেজমেন্ট View-Only Enforce", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = { repository.deleteUser(user.id) }) {
-                  Text("Delete", fontSize = 11.sp, color = Color(0xFFDC2626))
+              }
+            }
+
+            // Role Selector Chips
+            item {
+              Text("Select Role to Configure:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF0F172A))
+              Spacer(Modifier.height(4.dp))
+              Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+              ) {
+                listOf(
+                  UserRole.MANAGEMENT_VIEW,
+                  UserRole.PRODUCTION_REPORTER,
+                  UserRole.SUPERVISOR,
+                  UserRole.QUALITY_REPORTER,
+                  UserRole.AUDITOR,
+                  UserRole.IE,
+                  UserRole.MECHANIC,
+                  UserRole.PRODUCTION_MANAGER,
+                  UserRole.QUALITY_MANAGER
+                ).forEach { role ->
+                  val isSelected = matrixRole == role
+                  FilterChip(
+                    selected = isSelected,
+                    onClick = { matrixRole = role },
+                    label = { Text(role.displayName, fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                      selectedContainerColor = NflRoyalBlue,
+                      selectedLabelColor = Color.White
+                    )
+                  )
+                }
+              }
+            }
+
+            // Active Role Summary Card
+            item {
+              Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+              ) {
+                Column(Modifier.padding(12.dp)) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Column {
+                      Text(
+                        text = "Configuring Role: ${matrixRole.displayName}",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 13.5.sp,
+                        color = Color(0xFF0F172A)
+                      )
+                      Text(
+                        text = "Group: ${matrixRole.group} • Active users with this role: ${targetRoleUsers.size}",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B)
+                      )
+                    }
+                    if (matrixRole in setOf(UserRole.MANAGEMENT_VIEW, UserRole.PRODUCTION_MANAGER, UserRole.QUALITY_MANAGER)) {
+                      Surface(
+                        color = Color(0xFFFEF3C7),
+                        shape = RoundedCornerShape(4.dp)
+                      ) {
+                        Text(
+                          text = "🔒 View-Only Role",
+                          color = Color(0xFFB45309),
+                          fontSize = 10.sp,
+                          fontWeight = FontWeight.Bold,
+                          modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // SECTION 1: DATA ENTRY FUNCTIONS (ডাটা এন্ট্রি ফাংশনসমূহ)
+            item {
+              Surface(
+                color = Color(0xFFFEF2F2),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                  Icon(Icons.Default.Edit, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                  Column {
+                    Text(
+                      text = "১. ডাটা এন্ট্রি ফাংশনসমূহ (Data Entry Controls)",
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 12.5.sp,
+                      color = Color(0xFF991B1B)
+                    )
+                    Text(
+                      text = "কে কোন বিষয়ে ডাটা ইনপুট বা এন্ট্রি দিতে পারবে তা টগল করুন",
+                      fontSize = 10.sp,
+                      color = Color(0xFFB91C1C)
+                    )
+                  }
+                }
+              }
+            }
+
+            item {
+              Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+              ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                  PermToggleRow(
+                    title = "ঘণ্টাওয়ারী সুইং প্রোডাকশন আউটপুট এন্ট্রি",
+                    subtitle = "Hourly Sewing Production Output Entry (Sew-1, Sew-2, Sew-3)",
+                    checked = roleCanProductionWrite,
+                    onCheckedChange = { roleCanProductionWrite = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "আইরনিং ও প্যাকিং ফিনিশিং এন্ট্রি",
+                    subtitle = "Ironing & Packing Finishing Entry (Iron 1-3, Packing 1-3)",
+                    checked = roleCanFinishingWrite,
+                    onCheckedChange = { roleCanFinishingWrite = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "কোয়ালিটি ডিএইচইউ ইন্সপেকশন এন্ট্রি",
+                    subtitle = "Quality Endline DHU Inspection & Defect Counter",
+                    checked = roleCanQualityWrite,
+                    onCheckedChange = { roleCanQualityWrite = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "ওকেএল / বায়ার অডিট এন্ট্রি",
+                    subtitle = "OQL / Buyer Final Audit Inspection Record",
+                    checked = roleCanOqlWrite,
+                    onCheckedChange = { roleCanOqlWrite = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "এনপিটি ও মেশিন ব্রেকডাউন এন্ট্রি",
+                    subtitle = "NPT Breakdown, Stoppage & Mechanic Call",
+                    checked = roleCanNptWrite,
+                    onCheckedChange = { roleCanNptWrite = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "সকালের লাইন টার্গেট ও ম্যানপাওয়ার এন্ট্রি",
+                    subtitle = "Morning Target, Operator/Helper Count & SMV",
+                    checked = roleCanMorningTargetWrite,
+                    onCheckedChange = { roleCanMorningTargetWrite = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "মান্থলি ফ্যাক্টরি টার্গেট সেটআপ",
+                    subtitle = "Monthly Factory Target Configuration (Eff %, DHU %, OQL %)",
+                    checked = roleCanMonthlyTargetWrite,
+                    onCheckedChange = { roleCanMonthlyTargetWrite = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "টার্গেট সংশোধন ও ডাটা এডিট",
+                    subtitle = "Target Revision & Hourly Output Data Edit",
+                    checked = roleCanTargetRevisionWrite,
+                    onCheckedChange = { roleCanTargetRevisionWrite = it }
+                  )
+                }
+              }
+            }
+
+            // SECTION 2: VISUAL & REPORTING FUNCTIONS (ভিজ্যুয়াল ও রিপোর্ট ফাংশনসমূহ)
+            item {
+              Surface(
+                color = Color(0xFFEFF6FF),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                  Icon(Icons.Default.Visibility, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(18.dp))
+                  Column {
+                    Text(
+                      text = "২. ভিজ্যুয়াল ও রিপোর্ট দেখার অনুমতি (Visual / View Access)",
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 12.5.sp,
+                      color = Color(0xFF1E3A8A)
+                    )
+                    Text(
+                      text = "কে কোন ড্যাশবোর্ড বা রিপোর্ট দেখতে পারবে তা নির্ধারণ করুন",
+                      fontSize = 10.sp,
+                      color = Color(0xFF2563EB)
+                    )
+                  }
+                }
+              }
+            }
+
+            item {
+              Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+              ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                  PermToggleRow(
+                    title = "লাইভ প্রোডাকশন ড্যাশবোর্ড",
+                    subtitle = "Live Factory Hourly Matrix, Speedometers & Line Gauges",
+                    checked = roleCanViewDashboard,
+                    onCheckedChange = { roleCanViewDashboard = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "স্মার্ট টিভি ফুলস্ক্রিন ডিসপ্লে মোড",
+                    subtitle = "16:9 Smart TV Auto-scroll Overhead Display",
+                    checked = roleCanViewTvDashboard,
+                    onCheckedChange = { roleCanViewTvDashboard = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "মান্থলি এফিসিয়েন্সি ব্রেকডাউন ও লাইন টেবিল",
+                    subtitle = "Monthly Efficiency Breakdown Table (Sew-1, Sew-2, Sew-3)",
+                    checked = roleCanViewMonthlyEff,
+                    onCheckedChange = { roleCanViewMonthlyEff = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "মান্থলি ডিএইচইউ কোয়ালিটি রিপোর্ট",
+                    subtitle = "Monthly DHU Quality Table & Defect Pareto Breakdown",
+                    checked = roleCanViewMonthlyDhu,
+                    onCheckedChange = { roleCanViewMonthlyDhu = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "মান্থলি ওকেএল অডিট রিপোর্ট",
+                    subtitle = "Monthly OQL Audit Compliance & Acceptance Table",
+                    checked = roleCanViewMonthlyOql,
+                    onCheckedChange = { roleCanViewMonthlyOql = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "লাইন ভিত্তিক বিস্তারিত অ্যানালিটিক্স",
+                    subtitle = "Line Deep Dive, Hourly Trend Graphs & Speedometer",
+                    checked = roleCanViewDeepDive,
+                    onCheckedChange = { roleCanViewDeepDive = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "অডিট লগ ও হিস্ট্রি",
+                    subtitle = "Audit Logs & System Activity Trail",
+                    checked = roleCanViewAuditLogs,
+                    onCheckedChange = { roleCanViewAuditLogs = it }
+                  )
+                  HorizontalDivider(color = Color(0xFFF1F5F9))
+                  PermToggleRow(
+                    title = "পিডিএফ ও এক্সেল রিপোর্ট এক্সপোর্ট",
+                    subtitle = "Export Production, Quality & NPT Documents",
+                    checked = roleCanExportReports,
+                    onCheckedChange = { roleCanExportReports = it }
+                  )
+                }
+              }
+            }
+
+            // Save Policy Button
+            item {
+              Button(
+                onClick = {
+                  repository.applyRolePolicy(
+                    role = matrixRole,
+                    canViewDashboard = roleCanViewDashboard,
+                    canViewTvDashboard = roleCanViewTvDashboard,
+                    canViewMonthlyEfficiency = roleCanViewMonthlyEff,
+                    canViewMonthlyDhu = roleCanViewMonthlyDhu,
+                    canViewMonthlyOql = roleCanViewMonthlyOql,
+                    canViewLineDeepDive = roleCanViewDeepDive,
+                    canViewAuditLogs = roleCanViewAuditLogs,
+                    canExportReports = roleCanExportReports,
+                    canProductionWrite = roleCanProductionWrite,
+                    canFinishingWrite = roleCanFinishingWrite,
+                    canQualityWrite = roleCanQualityWrite,
+                    canOqlWrite = roleCanOqlWrite,
+                    canNptWrite = roleCanNptWrite,
+                    canMorningTargetWrite = roleCanMorningTargetWrite,
+                    canMonthlyTargetWrite = roleCanMonthlyTargetWrite,
+                    canTargetRevisionWrite = roleCanTargetRevisionWrite
+                  )
+                  roleSaveSuccessMessage = "${matrixRole.displayName} রোলের পারমিশন পলিসি সফলভাবে সংরক্ষিত হয়েছে।"
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = NflRoyalBlue)
+              ) {
+                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Save Role Permissions (${matrixRole.displayName})", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+              }
+            }
+
+            if (roleSaveSuccessMessage != null) {
+              item {
+                Surface(
+                  color = Color(0xFFDCFCE7),
+                  shape = RoundedCornerShape(8.dp),
+                  border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                  modifier = Modifier.fillMaxWidth()
+                ) {
+                  Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(roleSaveSuccessMessage ?: "", color = Color(0xFF14532D), fontSize = 11.5.sp)
+                  }
+                }
+              }
+            }
+          }
+        }
+        1 -> {
+          // TAB 1: USER ACCOUNTS & OVERRIDES
+          LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+          ) {
+            // Search Bar
+            item {
+              OutlinedTextField(
+                value = userSearchQuery,
+                onValueChange = { userSearchQuery = it },
+                placeholder = { Text("Search users by name, ID or role...", fontSize = 12.sp, color = Color(0xFF94A3B8)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(18.dp)) },
+                trailingIcon = {
+                  if (userSearchQuery.isNotEmpty()) {
+                    IconButton(onClick = { userSearchQuery = "" }) {
+                      Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color(0xFF64748B), modifier = Modifier.size(18.dp))
+                    }
+                  }
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+              )
+            }
+
+            val filteredUsers = users.filter { u ->
+              userSearchQuery.isBlank() ||
+                  u.name.contains(userSearchQuery, ignoreCase = true) ||
+                  u.id.contains(userSearchQuery, ignoreCase = true) ||
+                  u.role.displayName.contains(userSearchQuery, ignoreCase = true)
+            }
+
+            items(filteredUsers, key = { it.id }) { user ->
+              Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(2.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Column(Modifier.weight(1f)) {
+                      Text(user.name, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
+                      Text("ID: ${user.id} • Pass: ${user.password}", fontSize = 11.sp, color = Color(0xFF64748B))
+                    }
+                    Surface(
+                      color = when (user.role) {
+                        UserRole.ADMIN -> Color(0xFFFEE2E2)
+                        UserRole.MANAGEMENT_VIEW, UserRole.PRODUCTION_MANAGER, UserRole.QUALITY_MANAGER -> Color(0xFFFEF3C7)
+                        UserRole.SUPERVISOR -> Color(0xFFDBEAFE)
+                        else -> Color(0xFFDCFCE7)
+                      },
+                      shape = RoundedCornerShape(4.dp)
+                    ) {
+                      Text(
+                        text = user.role.displayName,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when (user.role) {
+                          UserRole.ADMIN -> Color(0xFF991B1B)
+                          UserRole.MANAGEMENT_VIEW, UserRole.PRODUCTION_MANAGER, UserRole.QUALITY_MANAGER -> Color(0xFFB45309)
+                          UserRole.SUPERVISOR -> Color(0xFF1E40AF)
+                          else -> Color(0xFF166534)
+                        },
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                      )
+                    }
+                  }
+
+                  Text(
+                    text = "Floor: ${user.floor.displayName} • Assigned Line: ${user.assignedLine}",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF334155)
+                  )
+
+                  // Status pill: View-Only vs Entry Enabled
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    if (user.isViewOnly) {
+                      Surface(
+                        color = Color(0xFFFEF3C7),
+                        shape = RoundedCornerShape(4.dp)
+                      ) {
+                        Row(
+                          modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                          verticalAlignment = Alignment.CenterVertically
+                        ) {
+                          Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(12.dp))
+                          Spacer(Modifier.width(4.dp))
+                          Text("View Only (No Data Entry)", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
+                        }
+                      }
+                    } else {
+                      Surface(
+                        color = Color(0xFFDCFCE7),
+                        shape = RoundedCornerShape(4.dp)
+                      ) {
+                        Row(
+                          modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                          verticalAlignment = Alignment.CenterVertically
+                        ) {
+                          Icon(Icons.Default.Edit, contentDescription = null, tint = Color(0xFF166534), modifier = Modifier.size(12.dp))
+                          Spacer(Modifier.width(4.dp))
+                          Text("Entry Enabled", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF166534))
+                        }
+                      }
+                    }
+
+                    // Quick badges
+                    if (user.canProductionWrite) PermissionChip("Prod")
+                    if (user.canQualityWrite) PermissionChip("DHU")
+                    if (user.canOqlWrite) PermissionChip("OQL")
+                    if (user.canNptWrite) PermissionChip("NPT")
+                    if (user.canMorningTargetWrite) PermissionChip("Target")
+                  }
+
+                  if (!user.isAdmin) {
+                    Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.End,
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      TextButton(onClick = {
+                        editingUser = user
+                        formId = user.id
+                        formName = user.name
+                        formPassword = user.password
+                        formRole = user.role
+                        formFloor = user.floor
+                        formLine = user.assignedLine
+
+                        formViewDashboard = user.canViewDashboard
+                        formViewTv = user.canViewTvDashboard
+                        formViewMonthlyEff = user.canViewMonthlyEfficiency
+                        formViewMonthlyDhu = user.canViewMonthlyDhu
+                        formViewMonthlyOql = user.canViewMonthlyOql
+                        formViewDeepDive = user.canViewLineDeepDive
+                        formViewAuditLogs = user.canViewAuditLogs
+                        formExportReports = user.canExportReports
+
+                        formProdWrite = user.canProductionWrite
+                        formFinishingWrite = user.canFinishingWrite
+                        formQualityWrite = user.canQualityWrite
+                        formOqlWrite = user.canOqlWrite
+                        formNptWrite = user.canNptWrite
+                        formMorningTargetWrite = user.canMorningTargetWrite
+                        formMonthlyTargetWrite = user.canMonthlyTargetWrite
+                        formTargetRevisionWrite = user.canTargetRevisionWrite
+
+                        showUserDialog = true
+                      }) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Edit Permissions", fontSize = 11.sp)
+                      }
+                      TextButton(onClick = { repository.deleteUser(user.id) }) {
+                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Delete", fontSize = 11.sp, color = Color(0xFFDC2626))
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -229,14 +790,19 @@ fun AdminUsersScreen(
     }
   }
 
-  // DIALOG: Create / Edit User & Permissions
-  if (showAddUserDialog) {
+  // DIALOG: CREATE / EDIT USER WITH FULL GRANULAR CONTROLS
+  if (showUserDialog) {
     AlertDialog(
       onDismissRequest = {
-        showAddUserDialog = false
+        showUserDialog = false
         editingUser = null
       },
-      title = { Text(if (editingUser != null) "Edit User & Permissions" else "Create New User Account", fontWeight = FontWeight.Bold) },
+      title = {
+        Column {
+          Text(if (editingUser != null) "Edit User Permissions" else "Create New Factory User", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+          Text("Configure View Access & Data Entry Rights", fontSize = 10.5.sp, color = Color(0xFF64748B))
+        }
+      },
       text = {
         Column(
           modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -246,7 +812,7 @@ fun AdminUsersScreen(
             value = formId,
             onValueChange = { formId = it },
             label = { Text("User ID *") },
-            placeholder = { Text("e.g. sup_kabir, qc_akter") },
+            placeholder = { Text("e.g. prod_01, sup_line_k") },
             enabled = editingUser == null,
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
@@ -256,7 +822,7 @@ fun AdminUsersScreen(
             value = formName,
             onValueChange = { formName = it },
             label = { Text("Full Name *") },
-            placeholder = { Text("e.g. Kabir Hossain") },
+            placeholder = { Text("e.g. Md. Shamim Hossain") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
           )
@@ -269,9 +835,10 @@ fun AdminUsersScreen(
             modifier = Modifier.fillMaxWidth()
           )
 
-          // Floor
+          // Floor Selector
+          Text("Assigned Floor:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF0F172A))
           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf(FloorScope.SEW_1, FloorScope.SEW_2, FloorScope.SEW_3, FloorScope.FINISHING, FloorScope.ALL).forEach { flr ->
+            listOf(FloorScope.SEW_1, FloorScope.SEW_2, FloorScope.SEW_3, FloorScope.ALL).forEach { flr ->
               Surface(
                 onClick = { formFloor = flr },
                 shape = RoundedCornerShape(4.dp),
@@ -279,18 +846,12 @@ fun AdminUsersScreen(
                 modifier = Modifier.weight(1f)
               ) {
                 Text(
-                  text = when (flr) {
-                    FloorScope.SEW_1 -> "Sew 1"
-                    FloorScope.SEW_2 -> "Sew 2"
-                    FloorScope.SEW_3 -> "Sew 3"
-                    FloorScope.FINISHING -> "Finish"
-                    FloorScope.ALL -> "All"
-                  },
-                  fontSize = 9.sp,
+                  text = flr.displayName,
+                  fontSize = 10.sp,
                   fontWeight = FontWeight.Bold,
                   color = if (formFloor == flr) Color.White else Color(0xFF334155),
-                  textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                  modifier = Modifier.padding(vertical = 4.dp)
+                  textAlign = TextAlign.Center,
+                  modifier = Modifier.padding(vertical = 6.dp)
                 )
               }
             }
@@ -299,19 +860,73 @@ fun AdminUsersScreen(
           OutlinedTextField(
             value = formLine,
             onValueChange = { formLine = it },
-            label = { Text("Assigned Line (e.g. K1, J1, All)") },
+            label = { Text("Assigned Line (e.g. K1, J1, Iron 1, Packing 1, All)") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
           )
 
-          // Module Permissions Toggles
-          Text("Module Permissions (Read / Write):", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF0F172A))
+          // Quick Preset: Make View-Only
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Button(
+              onClick = {
+                formProdWrite = false
+                formFinishingWrite = false
+                formQualityWrite = false
+                formOqlWrite = false
+                formNptWrite = false
+                formMorningTargetWrite = false
+                formMonthlyTargetWrite = false
+                formTargetRevisionWrite = false
+              },
+              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEF3C7)),
+              shape = RoundedCornerShape(6.dp)
+            ) {
+              Text("Set View-Only (No Entry)", color = Color(0xFFB45309), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
 
-          PermToggle("Production Entry", permProdWrite) { permProdWrite = it }
-          PermToggle("Quality Inspection (DHU / OQL)", permQualityWrite) { permQualityWrite = it }
-          PermToggle("NPT & Maintenance", permNptWrite) { permNptWrite = it }
-          PermToggle("Morning Target Setup", permMorningWrite) { permMorningWrite = it }
-          PermToggle("Monthly Target Setup", permMonthlyWrite) { permMonthlyWrite = it }
+            Button(
+              onClick = {
+                formViewDashboard = true
+                formViewTv = true
+                formViewMonthlyEff = true
+                formViewMonthlyDhu = true
+                formViewMonthlyOql = true
+                formViewDeepDive = true
+                formViewAuditLogs = true
+                formExportReports = true
+              },
+              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEFF6FF)),
+              shape = RoundedCornerShape(6.dp)
+            ) {
+              Text("Enable All Views", color = Color(0xFF1D4ED8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          // Granular DATA ENTRY Toggles
+          Text("✍️ Data Entry Permissions (ডাটা এন্ট্রি):", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF991B1B))
+          PermToggleRow("Hourly Production Entry", "Sewing lines hourly output", formProdWrite) { formProdWrite = it }
+          PermToggleRow("Finishing Entry", "Iron 1-3 & Packing 1-3", formFinishingWrite) { formFinishingWrite = it }
+          PermToggleRow("Quality DHU Entry", "Endline inspection & defects", formQualityWrite) { formQualityWrite = it }
+          PermToggleRow("OQL Audit Entry", "Buyer audit pass/fail", formOqlWrite) { formOqlWrite = it }
+          PermToggleRow("NPT Incident Entry", "Breakdown & mechanic stop", formNptWrite) { formNptWrite = it }
+          PermToggleRow("Morning Target Setup", "Line target, helpers, operators", formMorningTargetWrite) { formMorningTargetWrite = it }
+          PermToggleRow("Monthly Target Setup", "Monthly baseline setup", formMonthlyTargetWrite) { formMonthlyTargetWrite = it }
+          PermToggleRow("Target Revision", "Revising saved hourly targets", formTargetRevisionWrite) { formTargetRevisionWrite = it }
+
+          // Granular VISUAL Toggles
+          Text("👁️ Visual Access Permissions (কে দেখতে পারবে):", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E3A8A))
+          PermToggleRow("Live Production Dashboard", "Hourly floor matrix & gauges", formViewDashboard) { formViewDashboard = it }
+          PermToggleRow("Smart TV Display", "16:9 widescreen display", formViewTv) { formViewTv = it }
+          PermToggleRow("Monthly Efficiency Breakdown", "Line-wise efficiency table", formViewMonthlyEff) { formViewMonthlyEff = it }
+          PermToggleRow("Monthly DHU Quality Table", "Line-wise DHU breakdown", formViewMonthlyDhu) { formViewMonthlyDhu = it }
+          PermToggleRow("Monthly OQL Audit Table", "Line-wise OQL audit table", formViewMonthlyOql) { formViewMonthlyOql = it }
+          PermToggleRow("Line Deep Dive Analytics", "Hourly trend graphs", formViewDeepDive) { formViewDeepDive = it }
+          PermToggleRow("Audit Logs & History", "System audit trails", formViewAuditLogs) { formViewAuditLogs = it }
+          PermToggleRow("Export PDF & Excel", "Summary reports export", formExportReports) { formExportReports = it }
         }
       },
       confirmButton = {
@@ -325,20 +940,26 @@ fun AdminUsersScreen(
                 role = formRole,
                 floor = formFloor,
                 assignedLine = formLine.trim().ifEmpty { "K1" },
-                canProductionRead = permProdRead,
-                canProductionWrite = permProdWrite,
-                canQualityRead = permQualityRead,
-                canQualityWrite = permQualityWrite,
-                canNptRead = permNptRead,
-                canNptWrite = permNptWrite,
-                canMorningTargetRead = permMorningRead,
-                canMorningTargetWrite = permMorningWrite,
-                canMonthlyTargetRead = permMonthlyRead,
-                canMonthlyTargetWrite = permMonthlyWrite,
-                isAdmin = formRole == UserRole.ADMIN
+                isAdmin = formRole == UserRole.ADMIN,
+                canViewDashboard = formViewDashboard,
+                canViewTvDashboard = formViewTv,
+                canViewMonthlyEfficiency = formViewMonthlyEff,
+                canViewMonthlyDhu = formViewMonthlyDhu,
+                canViewMonthlyOql = formViewMonthlyOql,
+                canViewLineDeepDive = formViewDeepDive,
+                canViewAuditLogs = formViewAuditLogs,
+                canExportReports = formExportReports,
+                canProductionWrite = formProdWrite,
+                canFinishingWrite = formFinishingWrite,
+                canQualityWrite = formQualityWrite,
+                canOqlWrite = formOqlWrite,
+                canNptWrite = formNptWrite,
+                canMorningTargetWrite = formMorningTargetWrite,
+                canMonthlyTargetWrite = formMonthlyTargetWrite,
+                canTargetRevisionWrite = formTargetRevisionWrite
               )
               repository.saveUser(account)
-              showAddUserDialog = false
+              showUserDialog = false
               editingUser = null
             }
           },
@@ -349,7 +970,7 @@ fun AdminUsersScreen(
       },
       dismissButton = {
         TextButton(onClick = {
-          showAddUserDialog = false
+          showUserDialog = false
           editingUser = null
         }) {
           Text("Cancel")
@@ -360,29 +981,37 @@ fun AdminUsersScreen(
 }
 
 @Composable
-private fun PermissionBadge(module: String, hasWrite: Boolean) {
-  Surface(
-    color = if (hasWrite) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
-    shape = RoundedCornerShape(4.dp)
+private fun PermToggleRow(
+  title: String,
+  subtitle: String,
+  checked: Boolean,
+  onCheckedChange: (Boolean) -> Unit
+) {
+  Row(
+    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically
   ) {
-    Text(
-      text = if (hasWrite) "$module: W" else "$module: R",
-      fontSize = 9.sp,
-      fontWeight = FontWeight.Bold,
-      color = if (hasWrite) Color(0xFF166534) else Color(0xFF64748B),
-      modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-    )
+    Column(Modifier.weight(1f)) {
+      Text(title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A))
+      Text(subtitle, fontSize = 9.sp, color = Color(0xFF64748B))
+    }
+    Switch(checked = checked, onCheckedChange = onCheckedChange)
   }
 }
 
 @Composable
-private fun PermToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-  Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
-    verticalAlignment = Alignment.CenterVertically
+private fun PermissionChip(label: String) {
+  Surface(
+    color = Color(0xFFF1F5F9),
+    shape = RoundedCornerShape(3.dp)
   ) {
-    Text(label, fontSize = 11.sp, color = Color(0xFF334155))
-    Switch(checked = checked, onCheckedChange = onCheckedChange)
+    Text(
+      text = label,
+      fontSize = 8.5.sp,
+      fontWeight = FontWeight.Bold,
+      color = Color(0xFF334155),
+      modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+    )
   }
 }

@@ -80,7 +80,7 @@ fun LoginScreen(
         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(7.dp)) {
           Icon(
             painter = painterResource(com.example.R.drawable.ic_nfl_logo),
-            contentDescription = "Northern Fashion Limited company logo",
+            contentDescription = "Northern Fashions Ltd. company logo",
             modifier = Modifier.fillMaxSize(),
             tint = Color.Unspecified
           )
@@ -89,7 +89,7 @@ fun LoginScreen(
       Spacer(Modifier.height(14.dp))
       Text("NFL LIVE", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp, color = LoginText)
       Spacer(Modifier.height(3.dp))
-      Text("NORTHERN FASHION LIMITED", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, color = LoginMuted)
+      Text("NORTHERN FASHIONS LTD.", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, color = LoginMuted)
       Spacer(Modifier.height(14.dp))
       Surface(
         color = Color(0xFF063A3A).copy(alpha = 0.75f),
@@ -105,7 +105,35 @@ fun LoginScreen(
           Text("SECURE WORKSPACE", color = LoginTeal, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
       }
-      Spacer(Modifier.height(24.dp))
+      Spacer(Modifier.height(12.dp))
+
+      // Prominent Developer Credit Banner
+      Surface(
+        color = Color(0xFF0B2D4D),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFF22B8F0).copy(alpha = 0.65f)),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+      ) {
+        Column(
+          modifier = Modifier.padding(vertical = 9.dp, horizontal = 14.dp),
+          horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+          Text(
+            text = "This app is developed by Shamim",
+            color = Color(0xFF38BDF8),
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Bold
+          )
+          Spacer(Modifier.height(2.dp))
+          Text(
+            text = "IPE and Planning • Northern Fashions Ltd.",
+            color = Color(0xFFE2E8F0),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+          )
+        }
+      }
+      Spacer(Modifier.height(14.dp))
 
       Card(
         modifier = Modifier.fillMaxWidth(),
@@ -194,6 +222,28 @@ fun LoginScreen(
             Spacer(Modifier.width(8.dp))
             Text("Configure administrator access", color = LoginMuted, fontSize = 12.sp)
           }
+
+          HorizontalDivider(color = LoginBorder.copy(alpha = 0.5f))
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+          ) {
+            Text(
+              text = "This app is developed by Shamim",
+              color = Color(0xFF67E8F9),
+              fontSize = 12.sp,
+              fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+              text = "IPE and Planning",
+              color = LoginMuted,
+              fontSize = 11.sp,
+              fontWeight = FontWeight.Medium
+            )
+          }
         }
       }
 
@@ -255,7 +305,7 @@ fun LoginScreen(
         }
       }
       Spacer(Modifier.height(22.dp))
-      Text("NORTHERN FASHION LIMITED", color = LoginMuted.copy(alpha = 0.85f), fontSize = 10.sp, letterSpacing = 1.5.sp)
+      Text("NORTHERN FASHIONS LTD.", color = LoginMuted.copy(alpha = 0.85f), fontSize = 10.sp, letterSpacing = 1.5.sp)
       Spacer(Modifier.height(8.dp))
     }
   }

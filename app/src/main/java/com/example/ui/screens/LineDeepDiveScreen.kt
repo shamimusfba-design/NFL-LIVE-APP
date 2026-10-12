@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.NflRepository
 import com.example.model.PeriodScope
+import com.example.ui.components.NptPieChartCard
 import com.example.ui.components.SpeedometerGauge
 import com.example.ui.theme.NflRoyalBlue
 
@@ -43,6 +45,7 @@ fun LineDeepDiveScreen(
   var selectedPeriod by remember { mutableStateOf(PeriodScope.TODAY) }
   var selectedLineId by remember { mutableStateOf(lineId) }
   var showLineSwitcher by remember { mutableStateOf(false) }
+  var selectedQualityChartTab by remember { mutableStateOf("DHU") }
 
   val lineSetup = remember(selectedLineId) { repository.getLineSetup(selectedLineId) }
   val lineObj = remember(selectedLineId) { repository.allLinesMaster.find { it.id == selectedLineId } }
@@ -67,9 +70,14 @@ fun LineDeepDiveScreen(
   val totalAchieve = hourlyProd.lastOrNull()?.totalAchieve ?: 420
   val overallAchievePct = if (totalTarget > 0) Math.round((totalAchieve.toDouble() / totalTarget) * 1000.0) / 10.0 else 0.0
   val todayEffPct = if (hourlyProd.isNotEmpty()) hourlyProd.filter { it.efficiencyPct > 0 }.map { it.efficiencyPct }.average().let { if (it.isNaN()) 68.5 else Math.round(it * 10.0) / 10.0 } else 68.5
+  val avgOee = hourlyProd.filter { it.oeePct > 0 }.map { it.oeePct }.average().let { if (it.isNaN()) 72.8 else Math.round(it * 10.0) / 10.0 }
 
   val avgDhu = hourlyQuality.map { it.dhuPct }.average().let { if (it.isNaN()) 1.85 else Math.round(it * 100.0) / 100.0 }
   val avgOql = hourlyQuality.map { it.oqlPct }.average().let { if (it.isNaN()) 3.55 else Math.round(it * 100.0) / 100.0 }
+
+  val lineIssues = remember(selectedLineId) { repository.getLineIssues(selectedLineId) }
+  val totalNptMins = lineIssues.sumOf { it.durationMins }
+  val totalLostPcs = lineIssues.sumOf { it.outputImpactPcs }
 
   Scaffold(
     topBar = {
@@ -133,7 +141,7 @@ fun LineDeepDiveScreen(
         listOf("Today", "Yesterday", "Weekly", "Monthly").forEach { periodLabel ->
           val isSelected = when (periodLabel) {
             "Today" -> selectedPeriod == PeriodScope.TODAY
-            "Yesterday" -> selectedPeriod == PeriodScope.TODAY // simulated past day
+            "Yesterday" -> selectedPeriod == PeriodScope.YESTERDAY
             "Weekly" -> selectedPeriod == PeriodScope.WEEK
             "Monthly" -> selectedPeriod == PeriodScope.MONTH
             else -> false
@@ -141,6 +149,7 @@ fun LineDeepDiveScreen(
           Surface(
             onClick = {
               selectedPeriod = when (periodLabel) {
+                "Yesterday" -> PeriodScope.YESTERDAY
                 "Weekly" -> PeriodScope.WEEK
                 "Monthly" -> PeriodScope.MONTH
                 else -> PeriodScope.TODAY
@@ -182,43 +191,64 @@ fun LineDeepDiveScreen(
           ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
               Icon(Icons.Default.TrendingUp, contentDescription = null, tint = Color(0xFF0284C7))
-              Text("Production & Efficiency Analysis", fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
+              Text("Line $selectedLineId — Production & Efficiency", fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
             }
             Surface(color = Color(0xFFE0F2FE), shape = RoundedCornerShape(4.dp)) {
               Text("Item: ${lineSetup.itemName}", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0369A1), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
             }
           }
 
-          // KPI Cards Row (Today Eff, Update Eff, Total Achieve, Overall Achieve %)
-          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KpiCard(
-              title = "Today Eff",
-              value = "${todayEffPct}%",
-              subtext = "Target: ${lineSetup.targetEfficiencyPct.toInt()}%",
-              valueColor = if (todayEffPct >= lineSetup.targetEfficiencyPct) Color(0xFF16A34A) else Color(0xFFD97706),
-              modifier = Modifier.weight(1f)
-            )
-            KpiCard(
-              title = "Update Eff",
-              value = "${monthlyTarget.updateEfficiencyPct}%",
-              subtext = "Monthly Avg",
-              valueColor = Color(0xFF2563EB),
-              modifier = Modifier.weight(1f)
-            )
-            KpiCard(
-              title = "Total Output",
-              value = "$totalAchieve",
-              subtext = "Tgt: $totalTarget pcs",
-              valueColor = Color(0xFF0F172A),
-              modifier = Modifier.weight(1f)
-            )
-            KpiCard(
-              title = "Achieve %",
-              value = "${overallAchievePct}%",
-              subtext = "Output Ratio",
-              valueColor = if (overallAchievePct >= 85) Color(0xFF16A34A) else Color(0xFFD97706),
-              modifier = Modifier.weight(1f)
-            )
+          // 6 Core Metrics Requested: Today Eff, Up to Date Eff, Hourly Target vs Achieve, Hourly OEE, Today DHU, Up to Date DHU
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Row 1: Efficiency & Production Output
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              KpiCard(
+                title = if (selectedPeriod == PeriodScope.YESTERDAY) "Yesterday Eff" else "Today Efficiency",
+                value = "${todayEffPct}%",
+                subtext = if (selectedPeriod == PeriodScope.YESTERDAY) "Recorded Final" else "Target: ${lineSetup.targetEfficiencyPct.toInt()}%",
+                valueColor = if (todayEffPct >= lineSetup.targetEfficiencyPct) Color(0xFF16A34A) else Color(0xFFD97706),
+                modifier = Modifier.weight(1f)
+              )
+              KpiCard(
+                title = "Up to Date Eff",
+                value = "${monthlyTarget.updateEfficiencyPct}%",
+                subtext = "MTD Average",
+                valueColor = Color(0xFF2563EB),
+                modifier = Modifier.weight(1f)
+              )
+              KpiCard(
+                title = "Line $selectedLineId Tgt/Ach",
+                value = "$totalAchieve / $totalTarget",
+                subtext = "Ratio: ${overallAchievePct}%",
+                valueColor = if (overallAchievePct >= 85) Color(0xFF16A34A) else Color(0xFF0F172A),
+                modifier = Modifier.weight(1f)
+              )
+            }
+
+            // Row 2: Quality & OEE
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              KpiCard(
+                title = "Hourly OEE",
+                value = "${avgOee}%",
+                subtext = "Equip. Effectiveness",
+                valueColor = Color(0xFF0284C7),
+                modifier = Modifier.weight(1f)
+              )
+              KpiCard(
+                title = if (selectedPeriod == PeriodScope.YESTERDAY) "Yesterday DHU" else "Today DHU",
+                value = String.format(java.util.Locale.US, "%.2f", avgDhu),
+                subtext = if (selectedPeriod == PeriodScope.YESTERDAY) "Final QC Rate" else "Endline QC (DHU)",
+                valueColor = if (avgDhu <= 2.0) Color(0xFF16A34A) else Color(0xFFDC2626),
+                modifier = Modifier.weight(1f)
+              )
+              KpiCard(
+                title = "Up to Date DHU",
+                value = String.format(java.util.Locale.US, "%.2f", monthlyTarget.targetDhuPct),
+                subtext = "MTD Benchmark",
+                valueColor = Color(0xFF7C3AED),
+                modifier = Modifier.weight(1f)
+              )
+            }
           }
 
           // Line Efficiency Speedometer Dial
@@ -229,75 +259,8 @@ fun LineDeepDiveScreen(
           )
 
           // Column / Bar Chart: Hourly Target vs Output
-          Text("Column Chart: Hourly Target vs Output (Pieces)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
+          Text("Line $selectedLineId — Hourly Target vs Output (Pieces)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
           HourlyTargetVsOutputChart(hourlyProd)
-
-          // Hourly Production Table (Horizontally Scrollable)
-          Text("Hour-by-Hour Production Matrix:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
-          Box(
-            modifier = Modifier
-              .fillMaxWidth()
-              .horizontalScroll(rememberScrollState())
-          ) {
-            Column(
-              modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(min = 540.dp),
-              verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-              // Table Header
-              Surface(color = Color(0xFF0F172A), shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                  Text("Hour", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.3f))
-                  Text("Hourly Tgt", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                  Text("Achieve", color = Color(0xFF38BDF8), fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                  Text("Total Tgt", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                  Text("Total Ach", color = Color(0xFF4ADE80), fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                  Text("Efficiency %", color = Color(0xFFFBBF24), fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
-                  Text("Achieve %", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                }
-              }
-
-              // Table Rows
-              hourlyProd.forEachIndexed { idx, row ->
-                val isEven = idx % 2 == 0
-                Surface(
-                  color = if (isEven) Color(0xFFF8FAFC) else Color.White,
-                  shape = RoundedCornerShape(4.dp),
-                  modifier = Modifier.fillMaxWidth()
-                ) {
-                  Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) {
-                    Text(row.hourSlot, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1.3f))
-                    Text("${row.hourlyTarget}", fontSize = 9.sp, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                    Text(
-                      text = if (row.achieveOutput > 0) "${row.achieveOutput}" else "--",
-                      fontSize = 9.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = if (row.achieveOutput >= row.hourlyTarget) Color(0xFF16A34A) else Color(0xFFD97706),
-                      textAlign = TextAlign.End,
-                      modifier = Modifier.weight(1.0f)
-                    )
-                    Text("${row.totalTarget}", fontSize = 9.sp, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                    Text("${row.totalAchieve}", fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
-                    Text(
-                      text = if (row.efficiencyPct > 0) "${row.efficiencyPct}%" else "--",
-                      fontSize = 9.sp,
-                      fontWeight = FontWeight.ExtraBold,
-                      color = if (row.efficiencyPct >= lineSetup.targetEfficiencyPct) Color(0xFF16A34A) else Color(0xFFD97706),
-                      textAlign = TextAlign.End,
-                      modifier = Modifier.weight(1.1f)
-                    )
-                    Text(
-                      text = if (row.achievePct > 0) "${row.achievePct}%" else "--",
-                      fontSize = 9.sp,
-                      textAlign = TextAlign.End,
-                      modifier = Modifier.weight(1.0f)
-                    )
-                  }
-                }
-              }
-            }
-          }
         }
       }
 
@@ -343,8 +306,8 @@ fun LineDeepDiveScreen(
           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KpiCard(
               title = "Today DHU",
-              value = "${avgDhu}%",
-              subtext = "Endline QC",
+              value = String.format(java.util.Locale.US, "%.2f", avgDhu),
+              subtext = "Endline QC (DHU)",
               valueColor = if (avgDhu <= 2.0) Color(0xFF16A34A) else Color(0xFFDC2626),
               modifier = Modifier.weight(1f)
             )
@@ -357,8 +320,8 @@ fun LineDeepDiveScreen(
             )
             KpiCard(
               title = "Monthly DHU",
-              value = "${monthlyTarget.targetDhuPct}%",
-              subtext = "Target Standard",
+              value = String.format(java.util.Locale.US, "%.2f", monthlyTarget.targetDhuPct),
+              subtext = "Benchmark Standard",
               valueColor = Color(0xFF2563EB),
               modifier = Modifier.weight(1f)
             )
@@ -371,49 +334,206 @@ fun LineDeepDiveScreen(
             )
           }
 
-          // Column Chart: Hour vs DHU %
-          Text("Column Chart: Hour vs DHU %", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
-          HourVsDhuChart(hourlyQuality)
-
-          // Pareto Top 5 Defects Donut / Pie Chart
-          Text("Pareto Breakdown: Top 5 Major Defects + Others", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
+          // Top 5 Defects Solid Pie Chart for this Line (Requested order: right below production section)
+          Text("Line Top 5 Defects — Today (Endline QC)", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
           ParetoDefectPieChart(paretoDefects)
 
-          // Quality Hourly Table (Hour, DHU, OQL, Major Defects Name)
-          Text("Quality Hourly Audit Breakdown:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
-          Box(
+          // Sliding Selector: Hourly DHU vs Hourly OQL Column Charts
+          Text("Hourly Quality Trend Analysis (Column Charts):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
+          Row(
             modifier = Modifier
               .fillMaxWidth()
-              .horizontalScroll(rememberScrollState())
+              .background(Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
+              .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
           ) {
-            Column(
-              modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(min = 500.dp),
-              verticalArrangement = Arrangement.spacedBy(3.dp)
+            Surface(
+              onClick = { selectedQualityChartTab = "DHU" },
+              shape = RoundedCornerShape(6.dp),
+              color = if (selectedQualityChartTab == "DHU") Color(0xFF0F172A) else Color.Transparent,
+              modifier = Modifier.weight(1f)
             ) {
-              Surface(color = Color(0xFF0F172A), shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                  Text("Hour", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.3f))
-                  Text("DHU % (Endline)", color = Color(0xFFF87171), fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
-                  Text("OQL % (Auditor)", color = Color(0xFFFBBF24), fontSize = 9.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
-                  Text("Major Defects Name", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(2.0f))
-                }
-              }
+              Text(
+                text = "📊 Hourly DHU (Column)",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (selectedQualityChartTab == "DHU") Color.White else Color(0xFF475569),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(vertical = 7.dp)
+              )
+            }
 
-              hourlyQuality.forEachIndexed { idx, qRow ->
-                val isEven = idx % 2 == 0
-                Surface(
-                  color = if (isEven) Color(0xFFF8FAFC) else Color.White,
-                  shape = RoundedCornerShape(4.dp),
-                  modifier = Modifier.fillMaxWidth()
+            Surface(
+              onClick = { selectedQualityChartTab = "OQL" },
+              shape = RoundedCornerShape(6.dp),
+              color = if (selectedQualityChartTab == "OQL") Color(0xFF0F172A) else Color.Transparent,
+              modifier = Modifier.weight(1f)
+            ) {
+              Text(
+                text = "📈 Hourly OQL (Column)",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (selectedQualityChartTab == "OQL") Color.White else Color(0xFF475569),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(vertical = 7.dp)
+              )
+            }
+          }
+
+          // Sliding Display of the selected column chart
+          if (selectedQualityChartTab == "DHU") {
+            HourVsDhuColumnChart(hourlyQuality)
+          } else {
+            HourVsOqlColumnChart(hourlyQuality)
+          }
+        }
+      }
+
+      // ==========================================
+      // SECTION C: TODAY'S LINE ISSUES & NPT SUMMARY
+      // ==========================================
+      Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          // Header
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+              Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626))
+              Text("Today's Line Issues & NPT Downtime Summary", fontWeight = FontWeight.Black, fontSize = 13.sp, color = Color(0xFF0F172A))
+            }
+            Surface(color = Color(0xFFFEE2E2), shape = RoundedCornerShape(4.dp)) {
+              Text("NPT Analysis", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+            }
+          }
+
+          Text(
+            text = "Point-by-point root causes for downtime, line balancing disparity, and output loss on Line $selectedLineId today:",
+            fontSize = 10.sp,
+            color = Color(0xFF64748B)
+          )
+
+          // Net Impact Banner
+          Surface(
+            color = Color(0xFFFFF7ED),
+            shape = RoundedCornerShape(8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFED7AA)),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Row(
+              modifier = Modifier.padding(10.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+              Column {
+                Text("Total Non-Productive Time (NPT)", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF9A3412))
+                Text("$totalNptMins Minutes Lost", fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color(0xFFC2410C))
+              }
+              Surface(color = Color(0xFFEA580C), shape = RoundedCornerShape(6.dp)) {
+                Text("-$totalLostPcs pcs Output Impact", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+              }
+            }
+          }
+
+          // Line NPT Category Distribution Pie Chart
+          val lineNptBreakdown = repository.getLineNptBreakdown(selectedLineId)
+          NptPieChartCard(
+            title = "Line $selectedLineId — NPT Downtime Pie Chart",
+            subtitle = "Root causes for non-productive hours on this line",
+            breakdown = lineNptBreakdown,
+            totalLostPcs = totalLostPcs
+          )
+
+          // Point-by-point Issue Cards
+          lineIssues.forEachIndexed { index, issue ->
+            Surface(
+              shape = RoundedCornerShape(8.dp),
+              color = Color(0xFFF8FAFC),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
                 ) {
-                  Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(qRow.hourSlot, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1.3f))
-                    Text("${qRow.dhuPct}%", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626), textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
-                    Text("${qRow.oqlPct}%", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD97706), textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
-                    Text(qRow.majorDefectsName, fontSize = 9.sp, color = Color(0xFF334155), modifier = Modifier.weight(2.0f))
+                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(
+                      color = when (issue.category) {
+                        "Machine Breakdown" -> Color(0xFFFEE2E2)
+                        "Line Balancing" -> Color(0xFFFEF3C7)
+                        "Input Material N/A" -> Color(0xFFE0F2FE)
+                        else -> Color(0xFFF3E8FF)
+                      },
+                      shape = RoundedCornerShape(4.dp)
+                    ) {
+                      Text(
+                        text = "${index + 1}. ${issue.category}",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        color = when (issue.category) {
+                          "Machine Breakdown" -> Color(0xFFDC2626)
+                          "Line Balancing" -> Color(0xFFB45309)
+                          "Input Material N/A" -> Color(0xFF0369A1)
+                          else -> Color(0xFF7E22CE)
+                        },
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                      )
+                    }
+                    Text(issue.title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
                   }
+
+                  Surface(
+                    color = Color(0xFFDC2626).copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(4.dp)
+                  ) {
+                    Text(
+                      text = "⏱️ ${issue.durationMins}m NPT",
+                      fontSize = 9.sp,
+                      fontWeight = FontWeight.ExtraBold,
+                      color = Color(0xFFDC2626),
+                      modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                    )
+                  }
+                }
+
+                // Root cause
+                Text(
+                  text = "📌 Root Cause: ${issue.cause}",
+                  fontSize = 10.sp,
+                  color = Color(0xFF334155),
+                  fontWeight = FontWeight.Medium
+                )
+
+                // Impact and Action
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Text(
+                    text = "📉 Output Gap: ~${issue.outputImpactPcs} pcs",
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFC2410C)
+                  )
+                  Text(
+                    text = "✅ ${issue.actionTaken}",
+                    fontSize = 9.sp,
+                    color = Color(0xFF15803D),
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                  )
                 }
               }
             }
@@ -446,7 +566,7 @@ private fun KpiCard(
   }
 }
 
-// Chart 1: Hourly Target vs Output Bar Chart
+// Chart 1: Hourly Target vs Output Column Chart with explicit Data Labels
 @Composable
 private fun HourlyTargetVsOutputChart(rows: List<com.example.model.HourlyProductionRow>) {
   val maxVal = rows.maxOfOrNull { maxOf(it.hourlyTarget, it.achieveOutput) }?.coerceAtLeast(1) ?: 100
@@ -457,35 +577,37 @@ private fun HourlyTargetVsOutputChart(rows: List<com.example.model.HourlyProduct
     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
     modifier = Modifier
       .fillMaxWidth()
-      .height(140.dp)
+      .height(155.dp)
   ) {
     Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.SpaceBetween) {
       Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-          Box(modifier = Modifier.size(8.dp).background(Color(0xFF94A3B8), RoundedCornerShape(2.dp)))
-          Text("Target", fontSize = 9.sp, color = Color(0xFF64748B))
-        }
-        Spacer(modifier = Modifier.width(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-          Box(modifier = Modifier.size(8.dp).background(Color(0xFF0284C7), RoundedCornerShape(2.dp)))
-          Text("Actual Output", fontSize = 9.sp, color = Color(0xFF0284C7), fontWeight = FontWeight.Bold)
+        Text("Hourly Target vs Achieved (pcs)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Box(modifier = Modifier.size(8.dp).background(Color(0xFF94A3B8), RoundedCornerShape(2.dp)))
+            Text("Target", fontSize = 9.sp, color = Color(0xFF64748B))
+          }
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Box(modifier = Modifier.size(8.dp).background(Color(0xFF16A34A), RoundedCornerShape(2.dp)))
+            Text("Output", fontSize = 9.sp, color = Color(0xFF16A34A), fontWeight = FontWeight.Bold)
+          }
         }
       }
 
       Row(
         modifier = Modifier
           .fillMaxWidth()
-          .height(90.dp),
+          .height(110.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom
       ) {
         rows.take(8).forEach { r ->
-          val tgtFrac = (r.hourlyTarget.toFloat() / maxVal).coerceIn(0.1f, 1.0f)
-          val achFrac = (r.achieveOutput.toFloat() / maxVal).coerceIn(0.02f, 1.0f)
+          val tgtFrac = (r.hourlyTarget.toFloat() / maxVal).coerceIn(0.12f, 1.0f)
+          val achFrac = (r.achieveOutput.toFloat() / maxVal).coerceIn(0.04f, 1.0f)
 
           Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -496,27 +618,45 @@ private fun HourlyTargetVsOutputChart(rows: List<com.example.model.HourlyProduct
               horizontalArrangement = Arrangement.spacedBy(2.dp),
               verticalAlignment = Alignment.Bottom
             ) {
-              // Target bar
-              Box(
-                modifier = Modifier
-                  .width(6.dp)
-                  .height((tgtFrac * 65).dp)
-                  .background(Color(0xFFCBD5E1), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-              )
-              // Actual Output bar
-              Box(
-                modifier = Modifier
-                  .width(8.dp)
-                  .height((achFrac * 65).dp)
-                  .background(
-                    if (r.achieveOutput >= r.hourlyTarget) Color(0xFF16A34A) else Color(0xFF0284C7),
-                    RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)
-                  )
-              )
+              // Target bar with data label
+              Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                  text = "${r.hourlyTarget}",
+                  fontSize = 7.5.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = Color(0xFF94A3B8)
+                )
+                Box(
+                  modifier = Modifier
+                    .width(8.dp)
+                    .height((tgtFrac * 60).dp)
+                    .background(Color(0xFFCBD5E1), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                )
+              }
+
+              // Actual Output bar with data label
+              Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                  text = if (r.achieveOutput > 0) "${r.achieveOutput}" else "-",
+                  fontSize = 8.sp,
+                  fontWeight = FontWeight.ExtraBold,
+                  color = if (r.achieveOutput >= r.hourlyTarget) Color(0xFF16A34A) else Color(0xFF0284C7)
+                )
+                Box(
+                  modifier = Modifier
+                    .width(10.dp)
+                    .height((achFrac * 60).dp)
+                    .background(
+                      if (r.achieveOutput >= r.hourlyTarget) Color(0xFF16A34A) else Color(0xFF0284C7),
+                      RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)
+                    )
+                )
+              }
             }
             Text(
               text = r.hourSlot.substringBefore(" ").take(2),
               fontSize = 8.sp,
+              fontWeight = FontWeight.SemiBold,
               color = Color(0xFF64748B),
               modifier = Modifier.padding(top = 2.dp)
             )
@@ -527,10 +667,10 @@ private fun HourlyTargetVsOutputChart(rows: List<com.example.model.HourlyProduct
   }
 }
 
-// Chart 2: Hour vs DHU %
+// Chart 2: Hour vs DHU % Column Chart
 @Composable
-private fun HourVsDhuChart(rows: List<com.example.model.HourlyQualityRow>) {
-  val maxDhu = 3.0f
+private fun HourVsDhuColumnChart(rows: List<com.example.model.HourlyQualityRow>) {
+  val maxDhu = 3.5f
 
   Card(
     shape = RoundedCornerShape(8.dp),
@@ -538,49 +678,52 @@ private fun HourVsDhuChart(rows: List<com.example.model.HourlyQualityRow>) {
     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
     modifier = Modifier
       .fillMaxWidth()
-      .height(130.dp)
+      .height(145.dp)
   ) {
     Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.SpaceBetween) {
       Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("Standard Max DHU Threshold: 2.0%", fontSize = 9.sp, color = Color(0xFF94A3B8))
+        Text("Standard DHU Benchmark: ≤2.00", fontSize = 9.sp, color = Color(0xFF94A3B8))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
           Box(modifier = Modifier.size(8.dp).background(Color(0xFFEF4444), RoundedCornerShape(2.dp)))
-          Text("DHU %", fontSize = 9.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+          Text("Endline DHU", fontSize = 9.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
         }
       }
 
       Row(
         modifier = Modifier
           .fillMaxWidth()
-          .height(85.dp),
+          .height(100.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom
       ) {
         rows.take(8).forEach { r ->
-          val dhuFrac = (r.dhuPct.toFloat() / maxDhu).coerceIn(0.1f, 1.0f)
+          val dhuFrac = (r.dhuPct.toFloat() / maxDhu).coerceIn(0.12f, 1.0f)
+          val isHigh = r.dhuPct > 2.0
           Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom,
             modifier = Modifier.weight(1f)
           ) {
+            // Explicit Numeric DATA LABEL (Without % symbol)
             Text(
-              text = "${r.dhuPct}%",
-              fontSize = 8.sp,
-              fontWeight = FontWeight.Bold,
-              color = if (r.dhuPct > 2.0) Color(0xFFDC2626) else Color(0xFF16A34A)
+              text = String.format(java.util.Locale.US, "%.2f", r.dhuPct),
+              fontSize = 8.5.sp,
+              fontWeight = FontWeight.ExtraBold,
+              color = if (isHigh) Color(0xFFDC2626) else Color(0xFF16A34A)
             )
             Box(
               modifier = Modifier
-                .width(10.dp)
-                .height((dhuFrac * 50).dp)
+                .width(14.dp)
+                .height((dhuFrac * 60).dp)
                 .background(
-                  if (r.dhuPct > 2.0) Color(0xFFEF4444) else Color(0xFF10B981),
-                  RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)
+                  if (isHigh) Color(0xFFEF4444) else Color(0xFF10B981),
+                  RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
                 )
             )
             Text(
               text = r.hourSlot.substringBefore(" ").take(2),
-              fontSize = 8.sp,
+              fontSize = 8.5.sp,
+              fontWeight = FontWeight.SemiBold,
               color = Color(0xFF64748B),
               modifier = Modifier.padding(top = 2.dp)
             )
@@ -591,15 +734,82 @@ private fun HourVsDhuChart(rows: List<com.example.model.HourlyQualityRow>) {
   }
 }
 
-// Chart 3: Pareto Pie / Donut Chart for Top 5 Defects + Others
+// Chart 3: Hour vs OQL % Column Chart
+@Composable
+private fun HourVsOqlColumnChart(rows: List<com.example.model.HourlyQualityRow>) {
+  val maxOql = 5.0f
+
+  Card(
+    shape = RoundedCornerShape(8.dp),
+    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+    modifier = Modifier
+      .fillMaxWidth()
+      .height(145.dp)
+  ) {
+    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.SpaceBetween) {
+      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("Standard Auditor OQL Benchmark: ≤3.50%", fontSize = 9.sp, color = Color(0xFF94A3B8))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+          Box(modifier = Modifier.size(8.dp).background(Color(0xFF2563EB), RoundedCornerShape(2.dp)))
+          Text("Auditor OQL %", fontSize = 9.sp, color = Color(0xFF1D4ED8), fontWeight = FontWeight.Bold)
+        }
+      }
+
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(100.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+      ) {
+        rows.take(8).forEach { r ->
+          val oqlFrac = (r.oqlPct.toFloat() / maxOql).coerceIn(0.12f, 1.0f)
+          val isHigh = r.oqlPct > 3.5
+          Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Bottom,
+            modifier = Modifier.weight(1f)
+          ) {
+            // Explicit Numeric DATA LABEL
+            Text(
+              text = "${r.oqlPct}%",
+              fontSize = 8.5.sp,
+              fontWeight = FontWeight.ExtraBold,
+              color = if (isHigh) Color(0xFFDC2626) else Color(0xFF2563EB)
+            )
+            Box(
+              modifier = Modifier
+                .width(14.dp)
+                .height((oqlFrac * 60).dp)
+                .background(
+                  if (isHigh) Color(0xFFEA580C) else Color(0xFF0284C7),
+                  RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
+                )
+            )
+            Text(
+              text = r.hourSlot.substringBefore(" ").take(2),
+              fontSize = 8.5.sp,
+              fontWeight = FontWeight.SemiBold,
+              color = Color(0xFF64748B),
+              modifier = Modifier.padding(top = 2.dp)
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+// Chart 4: Pareto Solid Pie Chart for Top 5 Defects with explicit Data Labels
 @Composable
 private fun ParetoDefectPieChart(defects: List<com.example.model.ParetoDefectPoint>) {
   val sliceColors = listOf(
-    Color(0xFFDC2626), // Puckering
-    Color(0xFFEA580C), // Broken Stitch
-    Color(0xFFD97706), // Skip Stitch
-    Color(0xFF2563EB), // Uneven Seam
-    Color(0xFF7C3AED), // Needle Cut
+    Color(0xFFDC2626), // Puckering - Red
+    Color(0xFFEA580C), // Broken Stitch - Orange
+    Color(0xFFD97706), // Skip Stitch - Amber
+    Color(0xFF2563EB), // Uneven Seam - Royal Blue
+    Color(0xFF7C3AED), // Needle Cut - Purple
     Color(0xFF64748B)  // Others
   )
 
@@ -616,12 +826,12 @@ private fun ParetoDefectPieChart(defects: List<com.example.model.ParetoDefectPoi
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.SpaceBetween
     ) {
-      // Donut Chart Canvas
+      // Solid Pie Chart Canvas
       Box(
-        modifier = Modifier.size(110.dp),
+        modifier = Modifier.size(115.dp),
         contentAlignment = Alignment.Center
       ) {
-        Canvas(modifier = Modifier.size(100.dp)) {
+        Canvas(modifier = Modifier.size(105.dp)) {
           var startAngle = -90f
           defects.forEachIndexed { idx, p ->
             val sweep = (p.percentage.toFloat() / 100f) * 360f
@@ -630,22 +840,18 @@ private fun ParetoDefectPieChart(defects: List<com.example.model.ParetoDefectPoi
               color = color,
               startAngle = startAngle,
               sweepAngle = sweep,
-              useCenter = false,
-              style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Butt)
+              useCenter = true, // Solid Pie Chart
+              size = size
             )
             startAngle += sweep
           }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-          Text("Top 5", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
-          Text("Pareto", fontSize = 8.sp, color = Color(0xFF64748B))
-        }
       }
 
-      // Legend
+      // Legend with Explicit Data Labels (% and count)
       Column(
         modifier = Modifier.weight(1f).padding(start = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(5.dp)
       ) {
         defects.forEachIndexed { idx, p ->
           Row(
@@ -653,11 +859,11 @@ private fun ParetoDefectPieChart(defects: List<com.example.model.ParetoDefectPoi
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
           ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
               Box(modifier = Modifier.size(7.dp).background(sliceColors[idx % sliceColors.size], CircleShape))
               Text(p.defectName, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155))
             }
-            Text("${p.percentage}% (${p.count})", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+            Text("${p.count} (${p.percentage}%)", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = sliceColors[idx % sliceColors.size])
           }
         }
       }
