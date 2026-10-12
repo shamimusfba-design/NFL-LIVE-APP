@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,6 +70,7 @@ fun HomeScreen(
   var selectedChartTab by remember { mutableStateOf("SPEEDOMETER") } // SPEEDOMETER | COLUMN | DONUT | PARETO
   var selectedLineDetail by remember { mutableStateOf<LinePerformancePoint?>(null) }
   var showClearSampleDataDialog by remember { mutableStateOf(false) }
+  var showBsOqlDialog by remember { mutableStateOf(false) }
 
   val openIncidents = incidents.filter { it.status != IncidentStatus.RESOLVED }
 
@@ -372,6 +375,7 @@ fun HomeScreen(
         val monthlyObj = repository.getMonthlyTarget(currentFloor.apiValue)
         val monthAchEff = monthlyObj.updateEfficiencyPct
         val monthDhu = monthlyObj.targetDhuPct
+        val bsOqlVal = monthlyObj.bsOqlPct
 
         // Card 1: Monthly Efficiency (Tap to view Line-by-Line Monthly Efficiency page)
         ExecutiveKpiCard(
@@ -436,25 +440,47 @@ fun HomeScreen(
         )
       }
 
+      // Row 3: BS OQL (Buyer Standard OQL entered by IE) & FRI Pass Rate
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        val monthlyObjFloor = repository.getMonthlyTarget(currentFloor.apiValue)
+        val bsOqlValFloor = monthlyObjFloor.bsOqlPct
+
+        ExecutiveKpiCard(
+          title = "BS OQL",
+          valueText = "${String.format(java.util.Locale.US, "%.2f", bsOqlValFloor)}%",
+          targetText = "IE Entry • Std: ≤ 2.50% ✏️",
+          trendText = if (bsOqlValFloor <= 2.50) "IE STANDARD" else "ATTENTION",
+          isPositiveTrend = bsOqlValFloor <= 2.50,
+          progressFraction = (bsOqlValFloor / 5.0).toFloat().coerceIn(0f, 1f),
+          accentColor = Color(0xFF0284C7),
+          onClick = { showBsOqlDialog = true },
+          modifier = Modifier.weight(1f).testTag("kpi_bs_oql_btn")
+        )
+
+        ExecutiveKpiCard(
+          title = "FRI Pass Rate",
+          valueText = "${tvData.kpis.friPassRate.toInt()}%",
+          targetText = "First-time Right Quality",
+          trendText = "100% PERFECT",
+          isPositiveTrend = true,
+          progressFraction = 1.0f,
+          accentColor = Color(0xFF059669),
+          modifier = Modifier.weight(1f)
+        )
+      }
+
       if (currentPeriod == PeriodScope.TODAY || currentPeriod == PeriodScope.YESTERDAY) {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-          ExecutiveKpiCard(
-            title = "FRI Pass Rate",
-            valueText = "${tvData.kpis.friPassRate.toInt()}%",
-            targetText = "First-time Right Quality",
-            trendText = "100% PERFECT",
-            isPositiveTrend = true,
-            progressFraction = 1.0f,
-            accentColor = Color(0xFF059669),
-            modifier = Modifier.weight(1f)
-          )
           OperatorMachineMetricCard(
             operatorsCount = tvData.kpis.operatorsCount,
             machinesCount = tvData.kpis.machinesCount,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.fillMaxWidth()
           )
         }
       } else {
@@ -755,6 +781,180 @@ fun HomeScreen(
       },
       dismissButton = {
         TextButton(onClick = { showClearSampleDataDialog = false }) { Text("Cancel") }
+      }
+    )
+  }
+
+  // Interactive BS OQL Entry Modal (IE Setup)
+  if (showBsOqlDialog) {
+    var editBsFloor by remember { mutableStateOf(if (currentFloor == FloorScope.ALL) FloorScope.SEW_2 else currentFloor) }
+    val currentTarget = repository.getMonthlyTarget(editBsFloor.apiValue)
+    var bsOqlInput by remember(editBsFloor) { mutableStateOf(currentTarget.bsOqlPct.toString()) }
+    var saveFeedback by remember { mutableStateOf<String?>(null) }
+    val canEdit = currentUser?.canMonthlyTargetWrite ?: true
+
+    AlertDialog(
+      onDismissRequest = { showBsOqlDialog = false },
+      title = {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(24.dp))
+          Column {
+            Text("BS OQL Entry (IE Setup)", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFF0F172A))
+            Text("Buyer Standard OQL • IE Benchmark", fontSize = 10.sp, color = Color(0xFF64748B))
+          }
+        }
+      },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          Text(
+            text = "Buyer Standard OQL (BS OQL) is set by Industrial Engineering (IE) / Planning department as the quality acceptance tolerance threshold.",
+            fontSize = 11.sp,
+            color = Color(0xFF334155)
+          )
+
+          // Floor Selector
+          Text("Floor Scope:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+          ) {
+            listOf(FloorScope.SEW_1, FloorScope.SEW_2, FloorScope.SEW_3, FloorScope.FINISHING).forEach { fl ->
+              val isSel = editBsFloor == fl
+              Surface(
+                onClick = {
+                  editBsFloor = fl
+                  saveFeedback = null
+                },
+                shape = RoundedCornerShape(6.dp),
+                color = if (isSel) Color(0xFF0284C7) else Color(0xFFF1F5F9),
+                modifier = Modifier.weight(1f)
+              ) {
+                Text(
+                  text = when (fl) {
+                    FloorScope.SEW_1 -> "Sew 1"
+                    FloorScope.SEW_2 -> "Sew 2"
+                    FloorScope.SEW_3 -> "Sew 3"
+                    FloorScope.FINISHING -> "Finishing"
+                    else -> fl.displayName
+                  },
+                  fontSize = 10.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = if (isSel) Color.White else Color(0xFF334155),
+                  textAlign = TextAlign.Center,
+                  modifier = Modifier.padding(vertical = 7.dp)
+                )
+              }
+            }
+          }
+
+          // Input field
+          OutlinedTextField(
+            value = bsOqlInput,
+            onValueChange = {
+              bsOqlInput = it
+              saveFeedback = null
+            },
+            label = { Text("BS OQL Target (%)") },
+            placeholder = { Text("e.g. 2.40") },
+            singleLine = true,
+            enabled = canEdit,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            trailingIcon = { Text("%", fontWeight = FontWeight.Bold, color = Color(0xFF64748B), modifier = Modifier.padding(end = 12.dp)) },
+            modifier = Modifier.fillMaxWidth()
+          )
+
+          // Quick Presets
+          Text("Quick IE Standard Presets (AQL Thresholds):", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF64748B))
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+          ) {
+            listOf("1.80", "2.00", "2.20", "2.40", "2.50").forEach { preset ->
+              Surface(
+                onClick = { if (canEdit) bsOqlInput = preset },
+                shape = RoundedCornerShape(4.dp),
+                color = if (bsOqlInput == preset) Color(0xFFBAE6FD) else Color(0xFFF1F5F9),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.weight(1f)
+              ) {
+                Text(
+                  text = "$preset%",
+                  fontSize = 9.5.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = Color(0xFF0369A1),
+                  textAlign = TextAlign.Center,
+                  modifier = Modifier.padding(vertical = 5.dp)
+                )
+              }
+            }
+          }
+
+          saveFeedback?.let { msg ->
+            Surface(
+              shape = RoundedCornerShape(6.dp),
+              color = Color(0xFFDCFCE7),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(
+                text = msg,
+                color = Color(0xFF166534),
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(8.dp)
+              )
+            }
+          }
+
+          if (!canEdit) {
+            Surface(
+              color = Color(0xFFFEF3C7),
+              shape = RoundedCornerShape(6.dp),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(
+                text = "🔒 ভিউ অনলি: শুধুমাত্র IE অথবা অ্যাডমিন BS OQL পরিবর্তন করতে পারেন।",
+                color = Color(0xFF92400E),
+                fontSize = 10.sp,
+                modifier = Modifier.padding(8.dp)
+              )
+            }
+          }
+
+          // Full Setup Link
+          TextButton(
+            onClick = {
+              showBsOqlDialog = false
+              onNavigateToMonthlySetup()
+            },
+            modifier = Modifier.align(Alignment.End)
+          ) {
+            Text("Open Full Monthly IE Setup →", fontSize = 11.sp, color = Color(0xFF0284C7), fontWeight = FontWeight.Bold)
+          }
+        }
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            val num = bsOqlInput.toDoubleOrNull() ?: 2.40
+            val target = repository.getMonthlyTarget(editBsFloor.apiValue)
+            repository.saveMonthlyTarget(
+              target.copy(
+                bsOqlPct = num,
+                lastUpdatedBy = userName.ifEmpty { "IE Engineer" }
+              )
+            )
+            saveFeedback = "✓ Saved BS OQL ${num}% for ${editBsFloor.displayName}"
+          },
+          enabled = canEdit,
+          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+        ) {
+          Text("Save BS OQL", fontWeight = FontWeight.Bold)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showBsOqlDialog = false }) {
+          Text("Close")
+        }
       }
     )
   }
@@ -1544,35 +1744,33 @@ fun LineWiseDhuCard(
       }
 
       // 10. Enterprise Developer Credit Footer
-      item {
-        Card(
-          shape = RoundedCornerShape(12.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+      Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(top = 4.dp, bottom = 4.dp)
+      ) {
+        Column(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 12.dp)
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+          horizontalAlignment = Alignment.CenterHorizontally
         ) {
-          Column(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(vertical = 12.dp, horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-          ) {
-            Text(
-              text = "This app is developed by Shamim",
-              color = Color(0xFF1E88E5),
-              fontSize = 13.sp,
-              fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-              text = "IPE and Planning • Northern Fashions Ltd.",
-              color = Color(0xFF64748B),
-              fontSize = 11.sp,
-              fontWeight = FontWeight.Medium
-            )
-          }
+          Text(
+            text = "This app is developed by Shamim",
+            color = Color(0xFF1E88E5),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+          )
+          Spacer(Modifier.height(2.dp))
+          Text(
+            text = "IPE and Planning • Northern Fashions Ltd.",
+            color = Color(0xFF64748B),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+          )
         }
       }
     }

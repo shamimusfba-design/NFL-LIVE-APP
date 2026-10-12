@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,6 +47,7 @@ fun MonthlySetupScreen(
   var updateOqlText by remember(selectedFloor) { mutableStateOf(currentTarget.targetOqlPct.toString()) }
   var updateDhuText by remember(selectedFloor) { mutableStateOf(currentTarget.targetDhuPct.toString()) }
   var friPassText by remember(selectedFloor) { mutableStateOf(currentTarget.friPassRatePct.toString()) }
+  var bsOqlText by remember(selectedFloor) { mutableStateOf(currentTarget.bsOqlPct.toString()) }
 
   var saveSuccessMsg by remember { mutableStateOf<String?>(null) }
 
@@ -187,16 +189,31 @@ fun MonthlySetupScreen(
             )
           }
 
-          // Row 3: FRI Pass Rate
-          OutlinedTextField(
-            value = friPassText,
-            onValueChange = { friPassText = it },
-            label = { Text("Monthly FRI Pass Rate (%) — Final Inspection") },
-            placeholder = { Text("e.g. 100.0") },
+          // Row 3: FRI Pass Rate & BS OQL (IE Entry)
+          Row(
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-          )
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            OutlinedTextField(
+              value = friPassText,
+              onValueChange = { friPassText = it },
+              label = { Text("FRI Pass Rate (%)") },
+              placeholder = { Text("e.g. 100.0") },
+              modifier = Modifier.weight(1f),
+              singleLine = true,
+              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+            )
+
+            OutlinedTextField(
+              value = bsOqlText,
+              onValueChange = { bsOqlText = it },
+              label = { Text("BS OQL (%) — IE Entry") },
+              placeholder = { Text("e.g. 2.40") },
+              modifier = Modifier.weight(1f),
+              singleLine = true,
+              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+            )
+          }
 
           // Feedback
           AnimatedVisibility(visible = saveSuccessMsg != null) {
@@ -247,10 +264,11 @@ fun MonthlySetupScreen(
                 targetOqlPct = updateOqlText.toDoubleOrNull() ?: 3.20,
                 targetDhuPct = updateDhuText.toDoubleOrNull() ?: 1.75,
                 friPassRatePct = friPassText.toDoubleOrNull() ?: 100.0,
+                bsOqlPct = bsOqlText.toDoubleOrNull() ?: 2.40,
                 lastUpdatedBy = userName
               )
               repository.saveMonthlyTarget(target)
-              saveSuccessMsg = "✓ Saved Monthly Achieved for ${selectedFloor.displayName} (Eff: ${target.updateEfficiencyPct}%, OQL: ${target.targetOqlPct}%, DHU: ${target.targetDhuPct})"
+              saveSuccessMsg = "✓ Saved Monthly Targets & BS OQL for ${selectedFloor.displayName} (Eff: ${target.updateEfficiencyPct}%, OQL: ${target.targetOqlPct}%, DHU: ${target.targetDhuPct}%, BS OQL: ${target.bsOqlPct}%)"
             },
             enabled = canMonthlyTargetWrite,
             modifier = Modifier

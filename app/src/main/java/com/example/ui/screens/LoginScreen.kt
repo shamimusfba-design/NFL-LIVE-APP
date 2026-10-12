@@ -105,35 +105,7 @@ fun LoginScreen(
           Text("SECURE WORKSPACE", color = LoginTeal, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
       }
-      Spacer(Modifier.height(12.dp))
-
-      // Prominent Developer Credit Banner
-      Surface(
-        color = Color(0xFF0B2D4D),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color(0xFF22B8F0).copy(alpha = 0.65f)),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
-      ) {
-        Column(
-          modifier = Modifier.padding(vertical = 9.dp, horizontal = 14.dp),
-          horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-          Text(
-            text = "This app is developed by Shamim",
-            color = Color(0xFF38BDF8),
-            fontSize = 13.5.sp,
-            fontWeight = FontWeight.Bold
-          )
-          Spacer(Modifier.height(2.dp))
-          Text(
-            text = "IPE and Planning • Northern Fashions Ltd.",
-            color = Color(0xFFE2E8F0),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium
-          )
-        }
-      }
-      Spacer(Modifier.height(14.dp))
+      Spacer(Modifier.height(18.dp))
 
       Card(
         modifier = Modifier.fillMaxWidth(),
@@ -213,21 +185,12 @@ fun LoginScreen(
           TextButton(onClick = { errorMessage = "Please contact your system administrator for sign-in assistance." }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Text("Need help signing in?", color = LoginCyan, fontSize = 12.sp)
           }
-          HorizontalDivider(color = LoginBorder)
-          TextButton(
-            onClick = { showAdminSetupDialog = true },
-            modifier = Modifier.fillMaxWidth()
-          ) {
-            Icon(Icons.Default.Settings, contentDescription = null, tint = LoginMuted, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Configure administrator access", color = LoginMuted, fontSize = 12.sp)
-          }
 
-          HorizontalDivider(color = LoginBorder.copy(alpha = 0.5f))
+          // Single developer attribution placed directly below Need Help
           Column(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(vertical = 4.dp),
+              .padding(top = 2.dp, bottom = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
           ) {
             Text(
@@ -238,11 +201,21 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-              text = "IPE and Planning",
+              text = "IPE & Planning",
               color = LoginMuted,
               fontSize = 11.sp,
               fontWeight = FontWeight.Medium
             )
+          }
+
+          HorizontalDivider(color = LoginBorder)
+          TextButton(
+            onClick = { showAdminSetupDialog = true },
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Icon(Icons.Default.Settings, contentDescription = null, tint = LoginMuted, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Configure administrator access", color = LoginMuted, fontSize = 12.sp)
           }
         }
       }

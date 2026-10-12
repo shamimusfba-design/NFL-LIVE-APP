@@ -254,6 +254,7 @@ data class MonthlyFactoryTarget(
   val targetOqlPct: Double = 3.50,
   val targetDhuPct: Double = 2.00,
   val friPassRatePct: Double = 100.0,
+  val bsOqlPct: Double = 2.40,
   val lastUpdatedBy: String = "Management / IE",
   val lastUpdatedMillis: Long = System.currentTimeMillis()
 )
@@ -274,6 +275,16 @@ data class HourlyQualityRow(
   val dhuPct: Double,
   val oqlPct: Double,
   val majorDefectsName: String
+)
+
+data class LineHourlyDefectRecord(
+  val hourSlot: String,
+  val sewingSent: Int,
+  val sewingReceived: Int,
+  val sewingBalance: Int,
+  val spotSent: Int,
+  val spotReceived: Int,
+  val spotBalance: Int
 )
 
 data class ParetoDefectPoint(
@@ -309,6 +320,7 @@ data class LinePerformancePoint(
   val monthlyEfficiencyPct: Double = 65.0,
   val todayOqlPct: Double? = null,
   val monthlyOqlPct: Double = 3.8,
+  val bsOqlPct: Double = 2.40,
   val dhu: Double? = null,
   val monthlyDhuPct: Double = 1.35,
   val reportingStatus: String = "Complete", // "Complete", "Not reported", "In Progress"

@@ -547,10 +547,10 @@ class NflRepository(private val context: Context) {
   // Monthly Targets & Baseline Setup
   private val _monthlyTargets = MutableStateFlow<List<MonthlyFactoryTarget>>(
     listOf(
-      MonthlyFactoryTarget(floor = "Sew 1", targetEfficiencyPct = 70.0, updateEfficiencyPct = 67.0, targetOqlPct = 3.80, targetDhuPct = 2.10),
-      MonthlyFactoryTarget(floor = "Sew 2", targetEfficiencyPct = 72.0, updateEfficiencyPct = 68.5, targetOqlPct = 3.50, targetDhuPct = 1.95),
-      MonthlyFactoryTarget(floor = "Sew 3", targetEfficiencyPct = 71.0, updateEfficiencyPct = 66.8, targetOqlPct = 3.65, targetDhuPct = 2.05),
-      MonthlyFactoryTarget(floor = "Finishing", targetEfficiencyPct = 80.0, updateEfficiencyPct = 78.0, targetOqlPct = 2.50, targetDhuPct = 1.50)
+      MonthlyFactoryTarget(floor = "Sew 1", targetEfficiencyPct = 70.0, updateEfficiencyPct = 67.0, targetOqlPct = 3.80, targetDhuPct = 2.10, bsOqlPct = 2.40),
+      MonthlyFactoryTarget(floor = "Sew 2", targetEfficiencyPct = 72.0, updateEfficiencyPct = 68.5, targetOqlPct = 3.50, targetDhuPct = 1.95, bsOqlPct = 2.20),
+      MonthlyFactoryTarget(floor = "Sew 3", targetEfficiencyPct = 71.0, updateEfficiencyPct = 66.8, targetOqlPct = 3.65, targetDhuPct = 2.05, bsOqlPct = 2.50),
+      MonthlyFactoryTarget(floor = "Finishing", targetEfficiencyPct = 80.0, updateEfficiencyPct = 78.0, targetOqlPct = 2.50, targetDhuPct = 1.50, bsOqlPct = 1.80)
     )
   )
   val monthlyTargets: StateFlow<List<MonthlyFactoryTarget>> = _monthlyTargets.asStateFlow()
@@ -1333,6 +1333,48 @@ class NflRepository(private val context: Context) {
     }
   }
 
+  fun getLineHourlyDefectBreakdown(lineId: String, period: PeriodScope = PeriodScope.TODAY): List<LineHourlyDefectRecord> {
+    val point = getLinePerformancePoint(lineId, periodScope = period)
+    val totalSewSent = point.defectSent
+    val totalSewRecv = point.defectReceived
+    val totalSpotSent = point.spotSent
+    val totalSpotRecv = point.spotReceived
+    val slots = defaultHourSlots.take(8)
+
+    var remSewSent = totalSewSent
+    var remSewRecv = totalSewRecv
+    var remSpotSent = totalSpotSent
+    var remSpotRecv = totalSpotRecv
+
+    return slots.mapIndexed { idx, slot ->
+      val isLast = idx == slots.lastIndex
+      val sewSentShare = if (isLast) remSewSent else ((totalSewSent / 8) + (if (idx % 3 == 0) 1 else 0)).coerceAtMost(remSewSent).coerceAtLeast(0)
+      remSewSent = (remSewSent - sewSentShare).coerceAtLeast(0)
+
+      val sewRecvShare = if (isLast) remSewRecv else ((totalSewRecv / 8) + (if (idx % 2 == 0) 1 else 0)).coerceAtMost(remSewRecv).coerceAtLeast(0)
+      remSewRecv = (remSewRecv - sewRecvShare).coerceAtLeast(0)
+
+      val spotSentShare = if (isLast) remSpotSent else ((totalSpotSent / 8) + (if (idx % 4 == 0) 1 else 0)).coerceAtMost(remSpotSent).coerceAtLeast(0)
+      remSpotSent = (remSpotSent - spotSentShare).coerceAtLeast(0)
+
+      val spotRecvShare = if (isLast) remSpotRecv else ((totalSpotRecv / 8) + (if (idx % 3 == 1) 1 else 0)).coerceAtMost(remSpotRecv).coerceAtLeast(0)
+      remSpotRecv = (remSpotRecv - spotRecvShare).coerceAtLeast(0)
+
+      val sewBal = (sewSentShare - sewRecvShare).coerceAtLeast(0)
+      val spotBal = (spotSentShare - spotRecvShare).coerceAtLeast(0)
+
+      LineHourlyDefectRecord(
+        hourSlot = slot,
+        sewingSent = sewSentShare,
+        sewingReceived = sewRecvShare,
+        sewingBalance = sewBal,
+        spotSent = spotSentShare,
+        spotReceived = spotRecvShare,
+        spotBalance = spotBal
+      )
+    }
+  }
+
   fun getParetoDefects(lineId: String): List<ParetoDefectPoint> {
     return listOf(
       ParetoDefectPoint("Puckering", 38, 32.5),
@@ -1436,6 +1478,7 @@ class NflRepository(private val context: Context) {
         monthlyOqlPct = lineMonthlyOql,
         dhu = dhuVal,
         monthlyDhuPct = lineMonthlyDhu,
+        bsOqlPct = (oqlPct * 0.82).coerceIn(0.9, 4.2).let { Math.round(it * 100.0) / 100.0 },
         reportingStatus = "Complete",
         openIncidentsCount = openIncs,
         defectSent = lineSent,
@@ -1543,6 +1586,33 @@ class NflRepository(private val context: Context) {
       lastRefreshTime = "18:49",
       isDemoMode = _isDemoMode.value
     )
+  }
+
+  fun getLinePerformancePoint(lineId: String, floorScope: FloorScope = FloorScope.ALL, periodScope: PeriodScope = PeriodScope.TODAY): LinePerformancePoint {
+    val data = getTvDashboardData(floorScope, periodScope)
+    return data.linePerformance.find { it.lineId.equals(lineId.trim(), ignoreCase = true) }
+      ?: run {
+        val setup = getLineSetup(lineId)
+        val hash = Math.abs(lineId.hashCode())
+        val lineSent = 12 + (hash % 10)
+        val lineRecv = (lineSent - (hash % 4)).coerceAtLeast(0)
+        val lineSpotSent = 6 + (hash % 6)
+        val lineSpotRecv = (lineSpotSent - (hash % 3)).coerceAtLeast(0)
+        LinePerformancePoint(
+          lineId = lineId,
+          floor = setup.floor,
+          itemName = setup.itemName,
+          smv = setup.smv,
+          targetPcs = setup.targetDailyPcs,
+          defectSent = lineSent,
+          defectReceived = lineRecv,
+          defectBalance = (lineSent - lineRecv).coerceAtLeast(0),
+          spotSent = lineSpotSent,
+          spotReceived = lineSpotRecv,
+          spotBalance = (lineSpotSent - lineSpotRecv).coerceAtLeast(0),
+          bsOqlPct = 2.40
+        )
+      }
   }
 
   // Computes Day-by-Day performance trends (Efficiency, OQL, DHU, Output) for Weekly and Monthly views

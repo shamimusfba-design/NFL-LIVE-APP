@@ -65,6 +65,14 @@ fun LineDeepDiveScreen(
     repository.getParetoDefects(selectedLineId)
   }
 
+  val linePerformancePoint = remember(selectedLineId, selectedPeriod) {
+    repository.getLinePerformancePoint(selectedLineId, periodScope = selectedPeriod)
+  }
+
+  val lineHourlyDefects = remember(selectedLineId, selectedPeriod) {
+    repository.getLineHourlyDefectBreakdown(selectedLineId, selectedPeriod)
+  }
+
   // Summary Metrics
   val totalTarget = hourlyProd.lastOrNull()?.totalTarget ?: lineSetup.targetDailyPcs
   val totalAchieve = hourlyProd.lastOrNull()?.totalAchieve ?: 420
@@ -302,7 +310,7 @@ fun LineDeepDiveScreen(
             }
           }
 
-          // Quality KPI Cards Row (Today DHU, Today OQL, Monthly DHU, Monthly OQL)
+          // Quality KPI Cards Row (Today DHU, Today OQL, BS OQL, Monthly DHU, Monthly OQL)
           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KpiCard(
               title = "Today DHU",
@@ -318,6 +326,16 @@ fun LineDeepDiveScreen(
               valueColor = if (avgOql <= 3.5) Color(0xFF16A34A) else Color(0xFFD97706),
               modifier = Modifier.weight(1f)
             )
+            KpiCard(
+              title = "BS OQL",
+              value = "${String.format(java.util.Locale.US, "%.2f", linePerformancePoint.bsOqlPct)}%",
+              subtext = "IE Benchmark (≤ 2.5%)",
+              valueColor = Color(0xFF0284C7),
+              modifier = Modifier.weight(1f)
+            )
+          }
+
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KpiCard(
               title = "Monthly DHU",
               value = String.format(java.util.Locale.US, "%.2f", monthlyTarget.targetDhuPct),
@@ -388,6 +406,26 @@ fun LineDeepDiveScreen(
           }
         }
       }
+
+      // =========================================================================
+      // LINE-WISE DUAL DEFECT RECTIFICATION INTELLIGENCE (SEWING & SPOT DEFECTS)
+      // Requested by user: Line-wise Sewing Defect & Spot Defect Sent, Recv, Balance
+      // =========================================================================
+      DualDefectTrackingCard(
+        sewingSent = linePerformancePoint.defectSent,
+        sewingReceived = linePerformancePoint.defectReceived,
+        sewingBalance = linePerformancePoint.defectBalance,
+        spotSent = linePerformancePoint.spotSent,
+        spotReceived = linePerformancePoint.spotReceived,
+        spotBalance = linePerformancePoint.spotBalance,
+        floorName = "Line $selectedLineId ($floorName)"
+      )
+
+      // Line-wise Hourly Alter & Spot Flow Detail Breakdown Table
+      LineHourlyDefectTableCard(
+        lineId = selectedLineId,
+        hourlyRecords = lineHourlyDefects
+      )
 
       // ==========================================
       // SECTION C: TODAY'S LINE ISSUES & NPT SUMMARY
@@ -864,6 +902,172 @@ private fun ParetoDefectPieChart(defects: List<com.example.model.ParetoDefectPoi
               Text(p.defectName, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155))
             }
             Text("${p.count} (${p.percentage}%)", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = sliceColors[idx % sliceColors.size])
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun LineHourlyDefectTableCard(
+  lineId: String,
+  hourlyRecords: List<com.example.model.LineHourlyDefectRecord>
+) {
+  var isExpanded by remember { mutableStateOf(true) }
+  val totalSewSent = hourlyRecords.sumOf { it.sewingSent }
+  val totalSewRecv = hourlyRecords.sumOf { it.sewingReceived }
+  val totalSewBal = hourlyRecords.sumOf { it.sewingBalance }
+  val totalSpotSent = hourlyRecords.sumOf { it.spotSent }
+  val totalSpotRecv = hourlyRecords.sumOf { it.spotReceived }
+  val totalSpotBal = hourlyRecords.sumOf { it.spotBalance }
+  val totalPending = totalSewBal + totalSpotBal
+
+  Card(
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(containerColor = Color.White),
+    elevation = CardDefaults.cardElevation(2.dp),
+    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+    modifier = Modifier.fillMaxWidth()
+  ) {
+    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+          Icon(Icons.Default.TableChart, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+          Column {
+            Text(
+              text = "Line $lineId — Hourly Alter & Spot Flow",
+              fontWeight = FontWeight.Black,
+              fontSize = 13.sp,
+              color = Color(0xFF0F172A)
+            )
+            Text(
+              text = "ঘন্টাভিত্তিক সুইং ও দাগ সেন্ট/রিসিভ/ব্যালেন্স বিবরণী",
+              fontSize = 10.sp,
+              color = Color(0xFF64748B)
+            )
+          }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+          Surface(
+            color = if (totalPending > 0) Color(0xFFFEF2F2) else Color(0xFFF0FDF4),
+            shape = RoundedCornerShape(4.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (totalPending > 0) Color(0xFFFECACA) else Color(0xFFBBF7D0))
+          ) {
+            Text(
+              text = if (totalPending > 0) "Pending: $totalPending pcs" else "All Clear ✓",
+              fontSize = 9.sp,
+              fontWeight = FontWeight.Bold,
+              color = if (totalPending > 0) Color(0xFFDC2626) else Color(0xFF166534),
+              modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+          }
+          IconButton(onClick = { isExpanded = !isExpanded }, modifier = Modifier.size(28.dp)) {
+            Icon(
+              imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+              contentDescription = if (isExpanded) "Collapse" else "Expand",
+              tint = Color(0xFF64748B)
+            )
+          }
+        }
+      }
+
+      AnimatedVisibility(visible = isExpanded) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          val scrollState = rememberScrollState()
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .horizontalScroll(scrollState)
+          ) {
+            // Header Row
+            Surface(
+              color = Color(0xFF0F172A),
+              shape = RoundedCornerShape(6.dp)
+            ) {
+              Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Text("Hour Slot", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(85.dp))
+                Text("Sew Sent", color = Color(0xFFFED7AA), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("Sew Recv", color = Color(0xFFBBF7D0), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("Sew Bal", color = Color(0xFFFECDD3), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("Spot Sent", color = Color(0xFFE9D5FF), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("Spot Recv", color = Color(0xFFA7F3D0), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("Spot Bal", color = Color(0xFFFBCFE8), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("Status", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.width(75.dp))
+              }
+            }
+
+            // Data Rows
+            hourlyRecords.forEachIndexed { index, row ->
+              val rowPending = row.sewingBalance + row.spotBalance
+              Surface(
+                color = if (index % 2 == 0) Color.White else Color(0xFFF8FAFC),
+                shape = RoundedCornerShape(4.dp)
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Text(row.hourSlot, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155), modifier = Modifier.width(85.dp))
+                  Text("${row.sewingSent}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEA580C), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                  Text("${row.sewingReceived}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF16A34A), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                  Text("${row.sewingBalance}", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = if (row.sewingBalance > 0) Color(0xFFDC2626) else Color(0xFF16A34A), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                  Text("${row.spotSent}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF9333EA), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                  Text("${row.spotReceived}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF16A34A), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                  Text("${row.spotBalance}", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = if (row.spotBalance > 0) Color(0xFFDC2626) else Color(0xFF16A34A), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                  Box(modifier = Modifier.width(75.dp), contentAlignment = Alignment.Center) {
+                    Surface(
+                      color = if (rowPending > 0) Color(0xFFFEF2F2) else Color(0xFFF0FDF4),
+                      shape = RoundedCornerShape(3.dp)
+                    ) {
+                      Text(
+                        text = if (rowPending > 0) "$rowPending Bal" else "Clear ✓",
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (rowPending > 0) Color(0xFFDC2626) else Color(0xFF16A34A),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                      )
+                    }
+                  }
+                }
+              }
+            }
+
+            // Total Summary Row
+            Surface(
+              color = Color(0xFFF1F5F9),
+              shape = RoundedCornerShape(6.dp),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1))
+            ) {
+              Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Text("TOTAL", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A), modifier = Modifier.width(85.dp))
+                Text("$totalSewSent", fontSize = 10.5.sp, fontWeight = FontWeight.Black, color = Color(0xFFEA580C), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("$totalSewRecv", fontSize = 10.5.sp, fontWeight = FontWeight.Black, color = Color(0xFF16A34A), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("$totalSewBal", fontSize = 10.5.sp, fontWeight = FontWeight.Black, color = if (totalSewBal > 0) Color(0xFFDC2626) else Color(0xFF16A34A), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("$totalSpotSent", fontSize = 10.5.sp, fontWeight = FontWeight.Black, color = Color(0xFF9333EA), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("$totalSpotRecv", fontSize = 10.5.sp, fontWeight = FontWeight.Black, color = Color(0xFF16A34A), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Text("$totalSpotBal", fontSize = 10.5.sp, fontWeight = FontWeight.Black, color = if (totalSpotBal > 0) Color(0xFFDC2626) else Color(0xFF16A34A), textAlign = TextAlign.End, modifier = Modifier.width(65.dp))
+                Box(modifier = Modifier.width(75.dp), contentAlignment = Alignment.Center) {
+                  Text(
+                    text = if (totalPending > 0) "$totalPending pcs" else "Cleared",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (totalPending > 0) Color(0xFFDC2626) else Color(0xFF16A34A)
+                  )
+                }
+              }
+            }
           }
         }
       }

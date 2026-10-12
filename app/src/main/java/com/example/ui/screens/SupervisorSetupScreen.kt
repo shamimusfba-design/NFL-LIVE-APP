@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -387,7 +388,7 @@ fun SupervisorSetupScreen(
             Switch(checked = includeHelpers, onCheckedChange = { includeHelpers = it })
           }
 
-          // IE Verification Card
+          // IE Calculation Verification Card
           val smvVal = smvText.toDoubleOrNull() ?: 14.50
           val targetVal = targetDailyPcsText.toIntOrNull() ?: 480
           val opsVal = operatorsText.toIntOrNull() ?: 20
@@ -396,6 +397,38 @@ fun SupervisorSetupScreen(
             val avail = opsVal * 8 * 60
             ((earned / avail) * 100).let { Math.round(it * 10.0) / 10.0 }
           } else 0.0
+
+          // BS OQL (Buyer Standard OQL - IE Entry Benchmark)
+          val floorMonthlyTarget = repository.getMonthlyTarget(selectedFloor.apiValue)
+          Surface(
+            color = Color(0xFFF0F9FF),
+            shape = RoundedCornerShape(8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBAE6FD)),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Row(
+              modifier = Modifier.padding(10.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Column {
+                Text("BS OQL (Buyer Standard) — IE Entry:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0369A1))
+                Text("Standard Benchmark: ${String.format(java.util.Locale.US, "%.2f", floorMonthlyTarget.bsOqlPct)}% (Tolerance: ≤ 2.50%)", fontSize = 9.sp, color = Color(0xFF0284C7))
+              }
+              Surface(
+                color = Color(0xFF0284C7),
+                shape = RoundedCornerShape(4.dp)
+              ) {
+                Text(
+                  text = "BS OQL: ${floorMonthlyTarget.bsOqlPct}%",
+                  fontSize = 9.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = Color.White,
+                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+              }
+            }
+          }
 
           Surface(
             color = Color(0xFFF1F5F9),
