@@ -183,7 +183,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                     <span className="w-2 h-2 rounded-full bg-blue-600"></span>
                     <span className="text-xs font-bold text-slate-700">Today Eff</span>
                   </div>
-                  <span className={}>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${kpis.todayEfficiencyPct >= 75 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                     {kpis.todayEfficiencyPct >= 75 ? 'ON TARGET' : 'UNDER'}
                   </span>
                 </div>
@@ -196,7 +196,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                   <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div
                       className="bg-blue-600 h-full rounded-full transition-all"
-                      style={{ width:  }}
+                      style={{ width: `${Math.max(0, Math.min(100, kpis.todayEfficiencyPct))}%` }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-500 font-medium mt-1">
@@ -226,7 +226,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                   <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div
                       className="bg-sky-500 h-full rounded-full transition-all"
-                      style={{ width:  }}
+                      style={{ width: `${Math.max(0, Math.min(100, kpis.monthlyEfficiencyPct))}%` }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-500 font-medium mt-1">
@@ -243,7 +243,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                     <span className="text-xs font-bold text-slate-700">Today OQL</span>
                   </div>
-                  <span className={}>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${kpis.todayOqlPct <= 5 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
                     {kpis.todayOqlPct <= 5 ? 'STANDARD' : 'ALERT'}
                   </span>
                 </div>
@@ -256,7 +256,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                   <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div
                       className="bg-amber-500 h-full rounded-full transition-all"
-                      style={{ width:  }}
+                      style={{ width: `${Math.max(0, Math.min(100, kpis.todayOqlPct))}%` }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-500 font-medium mt-1">
@@ -286,7 +286,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                   <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div
                       className="bg-orange-500 h-full rounded-full transition-all"
-                      style={{ width:  }}
+                      style={{ width: `${Math.max(0, Math.min(100, kpis.bsQaOqlPct))}%` }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-500 font-medium mt-1">
@@ -316,7 +316,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                   <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div
                       className="bg-emerald-500 h-full rounded-full transition-all"
-                      style={{ width:  }}
+                      style={{ width: `${Math.max(0, Math.min(100, kpis.friPassRatePct))}%` }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-500 font-medium mt-1">
@@ -346,7 +346,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
                   <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div
                       className="bg-indigo-600 h-full rounded-full transition-all"
-                      style={{ width:  }}
+                      style={{ width: `${Math.max(0, Math.min(100, kpis.reportingCoveragePct))}%` }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-500 font-medium mt-1">
