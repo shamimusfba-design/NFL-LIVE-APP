@@ -358,6 +358,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
             </div>
 
             {/* Operators & Machines */}
+            <div className="grid grid-cols-2 gap-2.5">
               <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-lg">
                   👥
