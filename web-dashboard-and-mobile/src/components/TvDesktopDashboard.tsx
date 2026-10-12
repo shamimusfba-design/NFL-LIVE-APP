@@ -281,7 +281,7 @@ export const TvDesktopDashboard: React.FC<TvDesktopDashboardProps> = ({
               <div
                 className="h-full rounded-full"
                 style={{
-                  width: `${Math.max(0, Math.min(100, kpis.todayOqlPct))}%,
+                  width: `${Math.max(0, Math.min(100, kpis.todayOqlPct))}%`,
                   backgroundColor: kpis.todayOqlPct <= 2.0 ? '#10B981' : kpis.todayOqlPct <= 5.0 ? '#F59E0B' : '#EF4444'
                 }}
               ></div>
