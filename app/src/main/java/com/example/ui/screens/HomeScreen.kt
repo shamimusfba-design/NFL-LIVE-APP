@@ -1544,7 +1544,6 @@ fun LineWiseDhuCard(
       }
 
       // 10. Enterprise Developer Credit Footer
-      item {
         Card(
           shape = RoundedCornerShape(12.dp),
           colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -1574,7 +1573,6 @@ fun LineWiseDhuCard(
             )
           }
         }
-      }
     }
   }
 }
