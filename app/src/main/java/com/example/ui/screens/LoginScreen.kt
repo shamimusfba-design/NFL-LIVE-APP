@@ -46,7 +46,7 @@ fun LoginScreen(
 ) {
   val users by repository.users.collectAsState()
   var usernameInput by remember { mutableStateOf("supervisor") }
-  var passwordInput by remember { mutableStateOf("123") }
+  var passwordInput by remember { mutableStateOf("") }
   var passwordVisible by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
   var showAdminSetupDialog by remember { mutableStateOf(false) }
@@ -216,7 +216,8 @@ fun LoginScreen(
             Surface(
               onClick = {
                 usernameInput = user.id
-                passwordInput = user.password
+                passwordInput = ""
+                passwordVisible = false
                 errorMessage = null
               },
               shape = RoundedCornerShape(13.dp),
