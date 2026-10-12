@@ -659,12 +659,21 @@ class NflRepository(private val context: Context) {
   }
 
   fun retryPendingSubmissions() {
+    if (_currentUser.value?.let { it.isAdmin || it.canProductionWrite || it.canQualityWrite } != true) {
+      logPermissionDenied("PENDING_SUBMISSIONS", "RETRY")
+      return
+    }
     _productionEntries.value = _productionEntries.value.map { it.copy(syncStatus = SyncStatus.SYNCED) }
     _qualityEntries.value = _qualityEntries.value.map { it.copy(syncStatus = SyncStatus.SYNCED) }
   }
 
   // Idempotent demo data seeder with full dynamic dates and hourly distributions
   fun loadSeedDemoData(force: Boolean = true) {
+    // Allow initial seed during repository construction, but restrict manual reseeding to Admin.
+    if (_currentUser.value != null && !isAdminUser()) {
+      logPermissionDenied("SAMPLE_DATA", "RESEED")
+      return
+    }
     if (!force && prefs.getBoolean("sample_data_cleared", false)) return
     prefs.edit().putBoolean("sample_data_cleared", false).apply()
 
@@ -937,6 +946,10 @@ class NflRepository(private val context: Context) {
   }
 
   fun removeAllDemoData() {
+    if (!isAdminUser()) {
+      logPermissionDenied("SAMPLE_DATA", "DELETE")
+      return
+    }
     // Only records explicitly tagged as sample data are removed. Real submissions are preserved.
     _targets.value = _targets.value.filter { !it.isDemo }
     _productionEntries.value = _productionEntries.value.filter { !it.isDemo }
