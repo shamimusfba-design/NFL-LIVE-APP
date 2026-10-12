@@ -1232,6 +1232,7 @@ class NflRepository(private val context: Context) {
         updated
       } else u
     }
+    persistUsers()
     addAuditLog("RBAC_POLICY", role.name, "UPDATE_ROLE_POLICY", "Admin", "Updated all permissions for role ${role.displayName}")
   }
 
