@@ -680,7 +680,7 @@ fun AdminUsersScreen(
                   ) {
                     Column(Modifier.weight(1f)) {
                       Text(user.name, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color(0xFF0F172A))
-                      Text("ID: ${user.id} • Pass: ${user.password}", fontSize = 11.sp, color = Color(0xFF64748B))
+                      Text("ID: ${user.id}", fontSize = 11.sp, color = Color(0xFF64748B))
                     }
                     Surface(
                       color = when (user.role) {
