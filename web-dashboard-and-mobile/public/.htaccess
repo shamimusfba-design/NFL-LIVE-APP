@@ -1,0 +1,12 @@
+# NFL LIVE single-page application fallback for Apache/cPanel.
+Options -MultiViews
+RewriteEngine On
+RewriteBase /
+
+# Serve existing files and directories directly.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Send app routes to React.
+RewriteRule ^ index.html [L]
