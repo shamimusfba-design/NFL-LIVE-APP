@@ -840,14 +840,17 @@ fun AdminUsersScreen(
             modifier = Modifier.fillMaxWidth()
           )
 
-          OutlinedTextField(
-            value = formName,
-            onValueChange = { formName = it },
-            label = { Text("Full Name *") },
-            placeholder = { Text("e.g. Md. Shamim Hossain") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-          )
+          // Keep non-admin names stored internally, but do not display them while editing.
+          if (editingUser == null) {
+            OutlinedTextField(
+              value = formName,
+              onValueChange = { formName = it },
+              label = { Text("Full Name *") },
+              placeholder = { Text("e.g. Md. Shamim Hossain") },
+              singleLine = true,
+              modifier = Modifier.fillMaxWidth()
+            )
+          }
 
           OutlinedTextField(
             value = formPassword,
